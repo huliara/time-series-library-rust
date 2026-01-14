@@ -3,18 +3,25 @@ mod data;
 mod exp;
 mod layers;
 mod models;
-
 use args::Args;
 use burn::backend::wgpu::WgpuDevice;
-use burn::backend::Wgpu;
+use burn::backend::{Autodiff, Wgpu};
+use burn::module::AutodiffModule;
 use clap::Parser;
+use exp::anomaly_detection::ExpAnomalyDetection;
+// use exp::classification::ExpClassification;
+// use exp::imputation::ExpImputation;
+use exp::long_term_forecast::ExpLongTermForecast;
+// use exp::short_term_forecast::ExpShortTermForecast;
+// use exp::zero_shot_forecast::ExpZeroShotForecast;
 use models::transformer::Transformer;
 
 fn main() {
-    let args = Args::parse();
+    let args: Args = Args::parse();
     println!("Args: {:?}", args);
 
     type Backend = Wgpu;
+    type AutodiffBackend = Autodiff<Backend>;
     let device = WgpuDevice::default();
 
     if args.model == "Transformer" {
@@ -27,4 +34,16 @@ fn main() {
             args.model
         );
     }
+
+    match args.task_name {
+        args::TaskName::AnomalyDetection => todo!(),
+        args::TaskName::Classification => todo!(), // run_exp(ExpClassification { args }),
+        args::TaskName::Imputation => todo!(),     // run_exp(ExpImputation { args }),
+        args::TaskName::LongTermForecast => {
+            ExpLongTermForecast::new(args.clone())
+                .train::<AutodiffBackend, Transformer<AutodiffBackend>>(&args);
+        }
+        args::TaskName::ShortTermForecast => todo!(), // run_exp(ExpShortTermForecast { args }),
+        args::TaskName::ZeroShotForecast => todo!(),  // run_exp(ExpZeroShotForecast { args }),
+    };
 }

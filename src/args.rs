@@ -1,14 +1,30 @@
-use clap::Parser;
+use burn::backend::Wgpu;
+use clap::{Parser, ValueEnum};
+
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum TaskName {
+    AnomalyDetection,
+    Classification,
+    Imputation,
+    LongTermForecast,
+    ShortTermForecast,
+    ZeroShotForecast,
+}
+
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum Backend {
+    Wgpu,
+}
 
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     // basic config
-    #[arg(long, default_value = "long_term_forecast")]
-    pub task_name: String,
+    #[arg(long, short)]
+    pub task_name: TaskName,
 
-    #[arg(long, default_value_t = 1)]
-    pub is_training: i32,
+    #[arg(long)]
+    pub skip_training: bool,
 
     #[arg(long, default_value = "test")]
     pub model_id: String,
@@ -35,9 +51,8 @@ pub struct Args {
     #[arg(long, default_value = "h")]
     pub freq: String,
 
-    #[arg(long, default_value = "./checkpoints/")]
-    pub checkpoints: String,
-
+    #[arg(long, default_value = "./result/")]
+    pub result_path: String,
     // forecasting task
     #[arg(long, default_value_t = 96)]
     pub seq_len: usize,
@@ -169,6 +184,8 @@ pub struct Args {
     #[arg(long, default_value_t = false)]
     pub use_amp: bool,
 
+    #[arg(long)]
+    pub backend: Backend,
     // GPU
     #[arg(long, default_value_t = true)]
     pub use_gpu: bool,
@@ -286,4 +303,7 @@ pub struct Args {
 
     #[arg(long, default_value_t = 1)]
     pub pos: i32,
+
+    #[arg(long, default_value = "./checkpoints/")]
+    pub checkpoints: String,
 }

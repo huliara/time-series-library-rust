@@ -1,4 +1,4 @@
-use crate::args::Args;
+use crate::args::{Args, TaskName};
 use crate::layers::embed::DataEmbedding;
 use crate::layers::self_attention_family::{AttentionLayer, FullAttention};
 use crate::layers::transformer_enc_dec::{Decoder, DecoderLayer, Encoder, EncoderLayer};
@@ -55,7 +55,9 @@ impl<B: Backend> Transformer<B> {
         let mut decoder = None;
         let mut projection = None;
 
-        if args.task_name == "long_term_forecast" || args.task_name == "short_term_forecast" {
+        if args.task_name == TaskName::LongTermForecast
+            || args.task_name == TaskName::ShortTermForecast
+        {
             dec_embedding = Some(DataEmbedding::new(
                 args.dec_in,
                 args.d_model,
@@ -98,7 +100,9 @@ impl<B: Backend> Transformer<B> {
                 Some(LayerNormConfig::new(args.d_model).init(device)),
                 LinearConfig::new(args.d_model, args.c_out).init(device),
             ));
-        } else if args.task_name == "imputation" || args.task_name == "anomaly_detection" {
+        } else if args.task_name == TaskName::Imputation
+            || args.task_name == TaskName::AnomalyDetection
+        {
             projection = Some(LinearConfig::new(args.d_model, args.c_out).init(device));
         }
 
@@ -108,7 +112,7 @@ impl<B: Backend> Transformer<B> {
             dec_embedding,
             decoder,
             projection,
-            task_name: args.task_name.clone(),
+            task_name: format!("{:?}", args.task_name),
         }
     }
 
@@ -119,11 +123,11 @@ impl<B: Backend> Transformer<B> {
         x_dec: Tensor<B, 3>,
         x_mark_dec: Option<Tensor<B, 3>>,
     ) -> Tensor<B, 3> {
-        if self.task_name == "long_term_forecast" || self.task_name == "short_term_forecast" {
+        if self.task_name == "LongTermForecast" || self.task_name == "ShortTermForecast" {
             self.forecast(x_enc, x_mark_enc, x_dec, x_mark_dec)
-        } else if self.task_name == "imputation" {
+        } else if self.task_name == "Imputation" {
             self.imputation(x_enc, x_mark_enc)
-        } else if self.task_name == "anomaly_detection" {
+        } else if self.task_name == "AnomalyDetection" {
             self.anomaly_detection(x_enc)
         } else {
             panic!("Task not implemented: {}", self.task_name);
