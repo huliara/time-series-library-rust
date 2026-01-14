@@ -1,5 +1,8 @@
-use crate::layers::self_attention_family::{AttentionLayer, FullAttention};
-use crate::layers::transformer_enc_dec::{Encoder, EncoderLayer};
+use crate::layers::{
+    replication_pad_1d::ReplicationPad1d,
+    self_attention_family::{AttentionLayer, FullAttention},
+    transformer_enc_dec::{Encoder, EncoderLayer},
+};
 use burn::{
     config::Config,
     module::Module,
@@ -30,7 +33,9 @@ pub struct PatchTSTConfig {
 
 #[derive(Module, Debug)]
 pub struct PatchEmbedding<B: Backend> {
-    conv: Conv1d<B>,
+    padding_layer: ReplicationPad1d,
+    linear: Linear<B>,
+    dropout: Dropout,
 }
 
 impl<B: Backend> PatchEmbedding<B> {
@@ -49,26 +54,20 @@ impl<B: Backend> PatchEmbedding<B> {
         // But inside PatchEmbedding usually it handles padding if input length is not divisible.
         // We will configure a standard Conv1d here.
 
-        let conv = Conv1dConfig::new(1, d_model, patch_len) // in_channels=1 because we process per variate
-            .with_stride(stride)
-            .with_bias(false) // Usually no bias in PatchEmbedding projection
-            .init(device);
-
-        Self { conv }
+        let padding_layer = ReplicationPad1d::new((stride, stride));
+        let linear = LinearConfig::new(patch_len, d_model).init(device);
+        let dropout = DropoutConfig::new(_dropout).init();
+        Self {
+            padding_layer,
+            linear,
+            dropout,
+        }
     }
 
-    pub fn forward(&self, x: Tensor<B, 3>) -> (Tensor<B, 3>, usize) {
+    pub fn forward<B: Backend, const D: usize>(&self, x: Tensor<B, D>) -> Tensor<B, D> {
         // x: [Batch * NVars, Length, 1] (permuted before call)
         // Burn Conv1d: [Batch, Channel, Length] -> [Batch, Channel, LengthOutput]
         // Here we want: [Batch * NVars, 1, Length] -> [Batch * NVars, DModel, PatchNum]
-
-        let x_perm = x.swap_dims(1, 2); // [B*V, 1, L]
-        let out = self.conv.forward(x_perm); // [B*V, D, P]
-
-        let out = out.swap_dims(1, 2); // [B*V, P, D]
-        let patch_num = out.dims()[1];
-
-        (out, patch_num)
     }
 }
 

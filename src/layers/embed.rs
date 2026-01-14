@@ -2,6 +2,7 @@ use burn::module::Module;
 use burn::nn::conv::{Conv1d, Conv1dConfig};
 use burn::nn::{Dropout, DropoutConfig, PaddingConfig1d};
 use burn::tensor::{backend::Backend, Tensor};
+use burn_tensor::s;
 
 #[derive(Module, Debug)]
 pub struct TokenEmbedding<B: Backend> {
@@ -38,22 +39,25 @@ pub struct PositionalEmbedding<B: Backend> {
 
 impl<B: Backend> PositionalEmbedding<B> {
     pub fn new(d_model: usize, max_len: usize, device: &B::Device) -> Self {
-        // Precompute PE
-        // This is a simplified version, ideally we compute this using tensor operations
-        // But creating tensors from data is easier for initialization
+        let mut pe: Tensor<B, 2> = Tensor::zeros([max_len, d_model], device);
+        // Implement actual sinusoidal position encoding initialization
+        let position: Tensor<B, 2> = Tensor::arange_step(0..max_len as i64, 2, device)
+            .float()
+            .unsqueeze_dim(1); // [max_len, 1]
 
-        // Note: In a real implementation, we would calculate sin/cos values here.
-        // For now, we initialize with zeros to compile, but logic should be added.
-        // Since we can't easily use math functions on tensors during init without a backend context sometimes,
-        // we will just create a placeholder.
+        let div_term: Tensor<B, 2> = (Tensor::arange_step(0..d_model as i64, 2, device).float()
+            * -((10000.0f64).ln() / d_model as f64).exp())
+        .unsqueeze_dim(0); // [1, d_model/2]
 
-        let pe = Tensor::zeros([1, max_len, d_model], device);
-        // TODO: Implement actual sinusoidal position encoding initialization
-
+        let theta = position * div_term; // [max_len, d_model/2]
+        pe = pe.slice_assign([0..max_len, (0..d_model).s], theta.sin());
+        pe = pe.slice_assign(s![0..max_len,1..;2], theta.cos());
+        pe = pe.unsqueeze_dim(0); // [1, max_len, d_model]
+        let result: Tensor<B, 3> = pe.unsqueeze_dim(0);
         Self {
             d_model,
             max_len,
-            pe,
+            pe: result,
         }
     }
 
