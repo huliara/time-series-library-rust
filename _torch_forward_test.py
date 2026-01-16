@@ -1,3 +1,4 @@
+# rustのモデルをテストする際、Rustから呼び出すコード
 import torch
 from args import get_args
 import torch.nn as nn
