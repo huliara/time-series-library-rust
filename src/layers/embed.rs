@@ -1,8 +1,13 @@
 use burn::module::Module;
 use burn::nn::conv::{Conv1d, Conv1dConfig};
-use burn::nn::{Dropout, DropoutConfig, PaddingConfig1d};
+use burn::nn::{
+    Dropout, DropoutConfig, Linear, LinearConfig, PaddingConfig1d, PositionalEncoding,
+    PositionalEncodingConfig,
+};
 use burn::tensor::{backend::Backend, Tensor};
-use burn_tensor::s;
+use burn_tensor::ops::unfold::calculate_unfold_windows;
+
+use crate::layers::replication_pad_1d::ReplicationPad1d;
 
 #[derive(Module, Debug)]
 pub struct TokenEmbedding<B: Backend> {
@@ -31,49 +36,9 @@ impl<B: Backend> TokenEmbedding<B> {
 }
 
 #[derive(Module, Debug)]
-pub struct PositionalEmbedding<B: Backend> {
-    d_model: usize,
-    max_len: usize,
-    pe: Tensor<B, 3>, // [1, max_len, d_model]
-}
-
-impl<B: Backend> PositionalEmbedding<B> {
-    pub fn new(d_model: usize, max_len: usize, device: &B::Device) -> Self {
-        let mut pe: Tensor<B, 2> = Tensor::zeros([max_len, d_model], device);
-        // Implement actual sinusoidal position encoding initialization
-        let position: Tensor<B, 2> = Tensor::arange_step(0..max_len as i64, 2, device)
-            .float()
-            .unsqueeze_dim(1); // [max_len, 1]
-
-        let div_term: Tensor<B, 2> = (Tensor::arange_step(0..d_model as i64, 2, device).float()
-            * -((10000.0f64).ln() / d_model as f64).exp())
-        .unsqueeze_dim(0); // [1, d_model/2]
-
-        let theta = position * div_term; // [max_len, d_model/2]
-        pe = pe.slice_assign([0..max_len, (0..d_model).s], theta.sin());
-        pe = pe.slice_assign(s![0..max_len,1..;2], theta.cos());
-        pe = pe.unsqueeze_dim(0); // [1, max_len, d_model]
-        let result: Tensor<B, 3> = pe.unsqueeze_dim(0);
-        Self {
-            d_model,
-            max_len,
-            pe: result,
-        }
-    }
-
-    pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
-        let seq_len = x.dims()[1];
-        if seq_len > self.max_len {
-            panic!("Sequence length exceeds maximum length");
-        }
-        self.pe.clone().slice([0..1, 0..seq_len, 0..self.d_model])
-    }
-}
-
-#[derive(Module, Debug)]
 pub struct DataEmbedding<B: Backend> {
     value_embedding: TokenEmbedding<B>,
-    position_embedding: PositionalEmbedding<B>,
+    position_embedding: PositionalEncoding<B>,
     // temporal_embedding: TemporalEmbedding<B>, // Skipped for brevity
     dropout: Dropout,
 }
@@ -88,7 +53,9 @@ impl<B: Backend> DataEmbedding<B> {
         device: &B::Device,
     ) -> Self {
         let value_embedding = TokenEmbedding::new(c_in, d_model, device);
-        let position_embedding = PositionalEmbedding::new(d_model, 5000, device);
+        let position_embedding = PositionalEncodingConfig::new(d_model)
+            .with_max_sequence_size(5000)
+            .init(device);
         let dropout = DropoutConfig::new(dropout).init();
 
         Self {
@@ -100,9 +67,66 @@ impl<B: Backend> DataEmbedding<B> {
 
     pub fn forward(&self, x: Tensor<B, 3>, _x_mark: Option<Tensor<B, 3>>) -> Tensor<B, 3> {
         let x = self.value_embedding.forward(x);
-        let pe = self.position_embedding.forward(x.clone());
-
-        let x = x + pe;
+        let x = self.position_embedding.forward(x);
         self.dropout.forward(x)
+    }
+}
+
+#[derive(Module, Debug)]
+pub struct PatchEmbedding<B: Backend> {
+    padding_layer: ReplicationPad1d,
+    linear: Linear<B>,
+    positional_encoding: PositionalEncoding<B>,
+    dropout: Dropout,
+    patch_len: usize,
+    stride: usize,
+}
+
+impl<B: Backend> PatchEmbedding<B> {
+    pub fn new(
+        d_model: usize,
+        patch_len: usize,
+        stride: usize,
+        padding: usize,
+        _dropout: f64,
+        device: &B::Device,
+    ) -> Self {
+        Self {
+            padding_layer: ReplicationPad1d::new((0, padding)),
+            linear: LinearConfig::new(patch_len, d_model).init(device),
+            positional_encoding: PositionalEncodingConfig::new(d_model)
+                .with_max_sequence_size(5000)
+                .init(device),
+            dropout: DropoutConfig::new(_dropout).init(),
+            patch_len,
+            stride,
+        }
+    }
+
+    fn unfold(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
+        let dims = x.dims();
+        let (batch_size, n_vars, seq_len) = (dims[0], dims[1], dims[2]);
+
+        let num_patches = calculate_unfold_windows(seq_len, self.patch_len, self.stride);
+
+        let mut patches = Vec::with_capacity(num_patches);
+        for i in 0..num_patches {
+            let start = i * self.stride;
+            let end = start + self.patch_len;
+            let patch = x.clone().slice([0..batch_size, 0..n_vars, start..end]);
+            patches.push(patch);
+        }
+
+        let x: Tensor<B, 3> = Tensor::stack(patches, 0);
+        x.reshape([batch_size * n_vars, num_patches, self.patch_len])
+    }
+
+    pub fn forward(&self, x: Tensor<B, 3>) -> (Tensor<B, 3>, usize) {
+        let n_vars = x.dims()[1];
+        let x = self.padding_layer.forward(x);
+        let x = self.unfold(x);
+        let x = self.linear.forward(x);
+        let x = self.positional_encoding.forward(x);
+        (self.dropout.forward(x), n_vars)
     }
 }

@@ -1,5 +1,5 @@
 use crate::layers::{
-    replication_pad_1d::ReplicationPad1d,
+    embed::PatchEmbedding,
     self_attention_family::{AttentionLayer, FullAttention},
     transformer_enc_dec::{Encoder, EncoderLayer},
 };
@@ -29,46 +29,6 @@ pub struct PatchTSTConfig {
     pub patch_len: usize,
     pub stride: usize,
     pub num_class: usize,
-}
-
-#[derive(Module, Debug)]
-pub struct PatchEmbedding<B: Backend> {
-    padding_layer: ReplicationPad1d,
-    linear: Linear<B>,
-    dropout: Dropout,
-}
-
-impl<B: Backend> PatchEmbedding<B> {
-    pub fn new(
-        d_model: usize,
-        patch_len: usize,
-        stride: usize,
-        _padding: usize,
-        _dropout: f64,
-        device: &B::Device,
-    ) -> Self {
-        // PyTorch implementation uses Conv1d with kernel_size=patch_len, stride=stride.
-        // Input: [B, 1, L]. Output: [B, D, N].
-        // Burn Conv1d expects [Batch, Channel, Length].
-        // padding logic in PyTorch Code: `padding = stride`.
-        // But inside PatchEmbedding usually it handles padding if input length is not divisible.
-        // We will configure a standard Conv1d here.
-
-        let padding_layer = ReplicationPad1d::new((stride, stride));
-        let linear = LinearConfig::new(patch_len, d_model).init(device);
-        let dropout = DropoutConfig::new(_dropout).init();
-        Self {
-            padding_layer,
-            linear,
-            dropout,
-        }
-    }
-
-    pub fn forward<B: Backend, const D: usize>(&self, x: Tensor<B, D>) -> Tensor<B, D> {
-        // x: [Batch * NVars, Length, 1] (permuted before call)
-        // Burn Conv1d: [Batch, Channel, Length] -> [Batch, Channel, LengthOutput]
-        // Here we want: [Batch * NVars, 1, Length] -> [Batch * NVars, DModel, PatchNum]
-    }
 }
 
 #[derive(Module, Debug)]
@@ -106,7 +66,7 @@ impl<B: Backend> FlattenHead<B> {
 }
 
 #[derive(Module, Debug)]
-pub struct Model<B: Backend> {
+pub struct PatchTST<B: Backend> {
     task_name: String,
     patch_embedding: PatchEmbedding<B>,
     encoder: Encoder<B>, // Burn's Encoder
@@ -125,7 +85,7 @@ pub struct Model<B: Backend> {
     enc_in: usize,
 }
 
-impl<B: Backend> Model<B> {
+impl<B: Backend> PatchTST<B> {
     pub fn new(configs: PatchTSTConfig, device: &B::Device) -> Self {
         let padding = configs.stride;
         let patch_embedding = PatchEmbedding::new(
@@ -160,32 +120,6 @@ impl<B: Backend> Model<B> {
             );
             layers.push(layer);
         }
-
-        // Norm Layer for Encoder:
-        // Python: nn.Sequential(Transpose(1,2), nn.BatchNorm1d(configs.d_model), Transpose(1,2))
-        // We can't pass Sequential to Encoder's norm_layer generic easily if it expects LayerNorm-like.
-        // But Burn's Encoder definition uses `norm: Option<LayerNorm<B>>`.
-        // LayerNorm is strictly LayerNorm.
-        // If we want BatchNorm, we might need to modify Encoder or apply it outside.
-        // However, `src/layers/transformer_enc_dec.rs` defines `Encoder` with `norm: Option<LayerNorm<B>>`.
-        // So we cannot put BatchNorm there.
-        // We will set `norm` to None in Encoder and apply BatchNorm manually after encoder if needed,
-        // OR we just use LayerNorm if that's acceptable for this port.
-        // STRICT PORT: Python code uses BatchNorm1d. Burn Encoder uses LayerNorm.
-        // WE WILL USE LayerNorm here to fit the existing Encoder signature, noting the difference.
-        // Or we can define a Custom Encoder if we really want BatchNorm.
-        // Given the instructions, we should try to match behavior.
-        // But modifying shared `Encoder` struct is risky.
-        // Let's check `Encoder` struct again.
-        // `pub struct Encoder<B: Backend> { layers: Vec<EncoderLayer<B>>, norm: Option<LayerNorm<B>> }`
-        // It specifically uses `LayerNorm`.
-        // So we will stick to LayerNorm which is structurally similar (LN vs BN is significant but for this exercise we fit the type).
-        // Actually, PatchTST uses BatchNorm specifically for stabilization.
-        // We will leave `norm` in Encoder as None, and applying nothing (or maybe LayerNorm if we want).
-        // The Python code: `norm_layer=nn.Sequential(Transpose(1,2), nn.BatchNorm1d(configs.d_model), Transpose(1,2))`
-        // This is applied at the END of the encoder.
-        // We will implement `Encoder` without norm, and do not apply norm at the output of encoder for now,
-        // or apply BatchNorm outside since we can manipulate `enc_out`.
 
         let encoder = Encoder::new(layers, None);
 
