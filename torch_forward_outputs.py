@@ -1,3 +1,8 @@
+import torch
+from args import get_args
+import torch.nn as nn
+from data_provider.data_factory import data_provider
+from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
 from models import (
     Autoformer,
     Transformer,
@@ -259,4 +264,42 @@ model_dict = {
 
 
 def torch_forward_test(name):
-    model = model_dict[name]
+    args = get_args()
+    exp = Exp_Long_Term_Forecast(args)
+    device = exp.device
+    module: nn.Module = model_dict[name].Model(args).float()
+    module.eval()
+    for name, param in module.named_parameters():
+        if "weight" in name:
+            nn.init.constant_(param, 0.01)
+        elif "bias" in name:
+            nn.init.constant_(param, 0.0)
+
+    data_set, data_loader = data_provider(args, flag="test")
+    all_outputs = []
+    with torch.no_grad():
+        for i, (batch_x, batch_y, batch_x_mark, batch_y_mark) in enumerate(data_loader):
+            batch_x = batch_x.float().to(device)
+            batch_y = batch_y.float()
+            batch_x_mark = batch_x_mark.float().to(device)
+            batch_y_mark = batch_y_mark.float().to(device)
+            # decoder input
+            dec_inp = torch.zeros_like(batch_y[:, -args.pred_len :, :]).float()
+            dec_inp = (
+                torch.cat([batch_y[:, : args.label_len, :], dec_inp], dim=1)
+                .float()
+                .to(device)
+            )
+            # encoder - decoder
+            if args.use_amp:
+                with torch.cuda.amp.autocast():
+                    outputs = module(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+            else:
+                outputs = module(batch_x, batch_x_mark, dec_inp, batch_y_mark)
+            f_dim = -1 if args.features == "MS" else 0
+            outputs = outputs[:, -args.pred_len :, f_dim:]
+            batch_y = batch_y[:, -args.pred_len :, f_dim:].to(device)
+            pred = outputs.detach()
+            all_outputs.append(pred)
+    all_outputs = torch.cat(all_outputs, dim=0)
+    return all_outputs.cpu().numpy()
