@@ -6,7 +6,6 @@ mod models;
 use args::Args;
 use burn::backend::wgpu::WgpuDevice;
 use burn::backend::{Autodiff, Wgpu};
-use burn::module::AutodiffModule;
 use clap::Parser;
 use exp::anomaly_detection::ExpAnomalyDetection;
 // use exp::classification::ExpClassification;

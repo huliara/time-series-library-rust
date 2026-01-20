@@ -32,7 +32,7 @@ pub fn get_exp_name(args: &Args) -> String {
         args.model_id,
         args.model,
         args.data,
-        args.features,
+        args.feature_type,
         args.seq_len,
         args.label_len,
         args.pred_len,

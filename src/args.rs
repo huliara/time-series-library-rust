@@ -1,3 +1,5 @@
+use core::fmt;
+
 use burn::backend::Wgpu;
 use clap::{Parser, ValueEnum};
 
@@ -14,6 +16,41 @@ pub enum TaskName {
 #[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
 pub enum Backend {
     Wgpu,
+}
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum FeatureType {
+    Single,
+    Multi,
+}
+
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum Target {
+    HUFL,
+    HULL,
+    MUFL,
+    MULL,
+    LUFL,
+    LULL,
+    OT,
+}
+impl fmt::Display for Target {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Target::HUFL => "HUFL",
+            Target::HULL => "HULL",
+            Target::MUFL => "MUFL",
+            Target::MULL => "MULL",
+            Target::LUFL => "LUFL",
+            Target::LULL => "LULL",
+            Target::OT => "OT",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+pub enum TimeEmbed {
+    TimeF,
+    Fixed,
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -42,11 +79,11 @@ pub struct Args {
     #[arg(long, default_value = "ETTh1.csv")]
     pub data_path: String,
 
-    #[arg(long, default_value = "M")]
-    pub features: String,
+    #[arg(long)]
+    pub feature_type: FeatureType,
 
-    #[arg(long, default_value = "OT")]
-    pub target: String,
+    #[arg(long)]
+    pub target: Target,
 
     #[arg(long, default_value = "h")]
     pub freq: String,
@@ -126,8 +163,8 @@ pub struct Args {
     #[arg(long, default_value_t = 0.1)]
     pub dropout: f64,
 
-    #[arg(long, default_value = "timeF")]
-    pub embed: String,
+    #[arg(long)]
+    pub embed: TimeEmbed,
 
     #[arg(long, default_value = "gelu")]
     pub activation: String,
