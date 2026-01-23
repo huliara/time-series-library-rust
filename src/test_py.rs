@@ -71,15 +71,15 @@ pub fn execute_data_provider_test() -> PyResult<(Vec<f32>, Vec<f32>)> {
         let tuple_result = result.downcast::<pyo3::types::PyTuple>()?;
 
         let x_val = tuple_result.get_item(0)?;
-        let y_val = tuple_result.get_item(1)?;
+        let data_stamp = tuple_result.get_item(1)?;
 
         // 7. Convert to flat vectors
         let x_flat = x_val.call_method0("flatten")?.call_method0("tolist")?;
-        let y_flat = y_val.call_method0("flatten")?.call_method0("tolist")?;
+        let data_stamp_flat = data_stamp.call_method0("flatten")?.call_method0("tolist")?;
 
         let x_vec: Vec<f32> = x_flat.extract()?;
-        let y_vec: Vec<f32> = y_flat.extract()?;
+        let data_stamp_vec: Vec<f32> = data_stamp_flat.extract()?;
 
-        Ok((x_vec, y_vec))
+        Ok((x_vec, data_stamp_vec))
     })
 }

@@ -1,5 +1,4 @@
 use crate::args::Args;
-use burn::backend::*;
 
 pub mod anomaly_detection;
 pub mod classification;

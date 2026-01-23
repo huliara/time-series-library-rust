@@ -1,5 +1,5 @@
 use crate::args::{Args, TaskName};
-use crate::layers::embed::DataEmbedding;
+use crate::layers::embed::data_embedding::DataEmbedding;
 use crate::layers::self_attention_family::{AttentionLayer, FullAttention};
 use crate::layers::transformer_enc_dec::{Decoder, DecoderLayer, Encoder, EncoderLayer};
 use burn::module::Module;

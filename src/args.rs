@@ -1,6 +1,5 @@
 use core::fmt;
 
-use burn::backend::Wgpu;
 use clap::{Parser, ValueEnum};
 
 #[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
@@ -21,6 +20,16 @@ pub enum Backend {
 pub enum FeatureType {
     Single,
     Multi,
+}
+
+impl fmt::Display for FeatureType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            FeatureType::Single => "single",
+            FeatureType::Multi => "multi",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
@@ -47,10 +56,19 @@ impl fmt::Display for Target {
         write!(f, "{}", s)
     }
 }
-
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
 pub enum TimeEmbed {
     TimeF,
     Fixed,
+}
+impl fmt::Display for TimeEmbed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TimeEmbed::TimeF => "timeF",
+            TimeEmbed::Fixed => "fixed",
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
@@ -255,7 +273,7 @@ pub struct Args {
     pub augmentation_ratio: i32,
 
     #[arg(long, default_value_t = 2)]
-    pub seed: i32,
+    pub seed: u64,
 
     #[arg(long, default_value_t = false)]
     pub jitter: bool,

@@ -3,6 +3,7 @@ mod data;
 mod exp;
 mod layers;
 mod models;
+mod test_py;
 use args::Args;
 use burn::backend::wgpu::WgpuDevice;
 use burn::backend::{Autodiff, Wgpu};

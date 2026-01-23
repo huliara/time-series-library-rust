@@ -8,5 +8,5 @@ def data_provider_test():
     args.augmentation_ratio = 0.0  # for test, do not use augmentation
     data_set, _ = data_provider(args, "test")
     x: np.ndarray = data_set.data_x
-    y: np.ndarray = data_set.data_y
-    return x, y
+    stamp: np.ndarray = data_set.data_stamp
+    return x, stamp

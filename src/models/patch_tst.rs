@@ -1,15 +1,12 @@
 use crate::layers::{
-    embed::PatchEmbedding,
+    embed::patch_embedding::PatchEmbedding,
     self_attention_family::{AttentionLayer, FullAttention},
     transformer_enc_dec::{Encoder, EncoderLayer},
 };
 use burn::{
     config::Config,
     module::Module,
-    nn::{
-        conv::{Conv1d, Conv1dConfig},
-        Dropout, DropoutConfig, Linear, LinearConfig,
-    },
+    nn::{Dropout, DropoutConfig, Linear, LinearConfig},
     tensor::{backend::Backend, Tensor},
 };
 
@@ -172,7 +169,6 @@ impl<B: Backend> PatchTST<B> {
     fn forecast(&self, x_enc: Tensor<B, 3>, _x_mark_enc: Option<Tensor<B, 3>>) -> Tensor<B, 3> {
         // Normalization (RevIN equivalent inline)
         // x_enc: [Batch, Length, NVars]
-        let x_enc_len = x_enc.dims()[1];
         let means = x_enc.clone().mean_dim(1); // [Batch, 1, NVars]
         let x_enc = x_enc.sub(means.clone()); // Broadcast on dim 1
 
@@ -215,16 +211,6 @@ impl<B: Backend> PatchTST<B> {
         // Expand stats to [Batch, PredLen, NVars]
 
         // Burn broadcasting:
-        let stdev_expanded = stdev.clone().repeat_dim(1, self.pred_len); // [Batch, Pred, N] - Assuming repeat_dim repeats dim 1
-                                                                         // Note: repeat_dim(dim, times)
-                                                                         // stdev is [B, 1, N]. We want [B, Pred, N].
-                                                                         // Need to check Burn version. 0.16. `repeat_dim`?
-                                                                         // Usually `repeat` works on all dims or slice-cat.
-                                                                         // Let's use basic `slice` and `repeat` combo if needed or `repeat` if scalar.
-                                                                         // Correct approach: stdev is [B, 1, N].
-                                                                         // Burn's broadcasting handles [B, 1, N] * [B, Pred, N] -> [B, Pred, N].
-                                                                         // So we don't need manual repeat if broadcasting works.
-                                                                         // It SHOULD work.
 
         let dec_out = dec_out.mul(stdev); // Broadcast dim 1
         let dec_out = dec_out.add(means);

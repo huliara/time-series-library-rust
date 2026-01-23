@@ -1,17 +1,19 @@
 use super::util::*;
-use crate::args::{Args, FeatureType, Target, TimeEmbed};
-use burn::data::dataset::{transform::WindowsDataset, Dataset, InMemDataset};
-use burn::train::train;
-use csv::ReaderBuilder;
+use crate::args::{Args, FeatureType, TimeEmbed};
+use burn::{
+    data::dataset::Dataset,
+    tensor::{backend::Backend, Tensor, TensorData},
+};
 use ndarray::{s, Array1, Array2, Axis};
 use polars::prelude::*;
-use serde::{Deserialize, Serialize};
-#[derive(Deserialize, Serialize, Clone, Debug)]
-pub struct ETTHourItem {
-    pub seq_x: Array2<f32>,
-    pub seq_y: Array2<f32>,
-    pub seq_x_mark: Array2<f32>,
-    pub seq_y_mark: Array2<f32>,
+use std::path::PathBuf;
+
+#[derive(Clone, Debug)]
+pub struct TimeSeriesItem<B: Backend> {
+    pub seq_x: Tensor<B, 2>,
+    pub seq_y: Tensor<B, 2>,
+    pub seq_x_mark: Tensor<B, 2>,
+    pub seq_y_mark: Tensor<B, 2>,
 }
 
 #[derive(Clone, Debug)]
@@ -45,31 +47,33 @@ impl StandardScaler {
     }
 }
 
-pub struct ETTHourDataset {
-    pub data_x: Array2<f32>,
-    pub data_y: Array2<f32>,
-    pub data_stamp: Array2<f32>,
+pub struct ETTHourDataset<B: Backend> {
+    pub data_x: Tensor<B, 2>,
+    pub data_y: Tensor<B, 2>,
+    pub data_stamp: Tensor<B, 2>,
     pub seq_len: usize,
     pub label_len: usize,
     pub pred_len: usize,
     pub scaler: StandardScaler,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum ExpFlag {
     Train,
     Val,
     Test,
 }
 
-impl ETTHourDataset {
-    pub fn new(args: &Args, flag: ExpFlag) -> Self {
+impl<B: Backend> ETTHourDataset<B> {
+    pub fn new(args: &Args, flag: ExpFlag, device: &B::Device) -> Self {
         // Default size
         let seq_len = args.seq_len;
         let label_len = args.label_len;
         let pred_len = args.pred_len;
+        let path = PathBuf::from(&args.data_path);
         let df = CsvReadOptions::default()
             .with_has_header(true)
-            .try_into_reader_with_file_path(Some(args.data_path.into()))
+            .try_into_reader_with_file_path(Some(path))
             .expect("Failed to read CSV file")
             .finish();
 
@@ -92,26 +96,36 @@ impl ETTHourDataset {
                     ExpFlag::Test => (border1s.2, border2s.2),
                 };
 
-                let feature_columns = match args.feature_type {
-                    FeatureType::Multi => vec![
-                        col("HUFL"),
-                        col("HULL"),
-                        col("MUFL"),
-                        col("MULL"),
-                        col("LUFL"),
-                        col("LULL"),
-                        col("OT"),
-                    ],
-                    FeatureType::Single => vec![col(&args.target.to_string())],
+                let data_array: Array2<f32> = match args.feature_type {
+                    FeatureType::Multi => df
+                        .clone()
+                        .lazy()
+                        .select([
+                            col("HUFL"),
+                            col("HULL"),
+                            col("MUFL"),
+                            col("MULL"),
+                            col("LUFL"),
+                            col("LULL"),
+                            col("OT"),
+                        ])
+                        .collect()
+                        .unwrap()
+                        .to_ndarray::<Float32Type>(IndexOrder::C)
+                        .unwrap()
+                        .into_dimensionality::<ndarray::Ix2>()
+                        .unwrap(),
+                    FeatureType::Single => df
+                        .clone()
+                        .lazy()
+                        .select([col(&args.target.to_string())])
+                        .collect()
+                        .unwrap()
+                        .to_ndarray::<Float32Type>(IndexOrder::C)
+                        .unwrap()
+                        .into_dimensionality::<ndarray::Ix2>()
+                        .unwrap(),
                 };
-
-                let data_array: Array2<f32> = df
-                    .select(feature_columns)
-                    .unwrap()
-                    .to_ndarray::<Float32Type>()
-                    .unwrap()
-                    .into_dimensionality::<ndarray::Ix2>()
-                    .unwrap();
 
                 let mut scaler = StandardScaler::new();
                 let train_data = data_array.slice(s![border1s.0..border2s.0, ..]).to_owned();
@@ -120,71 +134,79 @@ impl ETTHourDataset {
 
                 let slice_len = (end_idx - start_idx) as usize;
 
-                let date_series = df
-                    .slice(start_idx as i64, slice_len)
-                    .column("date")
-                    .unwrap()
-                    .str()
-                    .unwrap()
-                    .to_datetime(
-                        TimeUnit::Microseconds,
-                        None,
-                        StrptimeOptions {
-                            format: Some("%Y-%m-%d %H:%M:%S".into()),
-                            strict: false,
-                            exact: true,
-                            ..Default::default()
-                        },
-                        "raise",
-                    )
-                    .unwrap();
-                let data_stamp = match args.embed {
+                let data_stamp_array: Array2<f32> = match args.embed {
                     TimeEmbed::TimeF => {
-                        let month = date_series
-                            .month()
-                            .into_series()
-                            .cast(&DataType::Float32)
-                            .unwrap();
-                        let day = date_series
-                            .day()
-                            .into_series()
-                            .cast(&DataType::Float32)
-                            .unwrap();
-                        let weekday = (date_series
-                            .weekday()
-                            .into_series()
-                            .cast(&DataType::Float32)
+                        use chrono::{Datelike, Timelike};
+                        let dates: Vec<chrono::NaiveDateTime> = df
+                            .slice(start_idx as i64, slice_len)
+                            .column("date")
                             .unwrap()
-                            - 1.0);
-                        let hour = date_series
-                            .hour()
-                            .into_series()
-                            .cast(&DataType::Float32)
-                            .unwrap();
+                            .str()
+                            .unwrap()
+                            .into_no_null_iter()
+                            .map(|s| {
+                                chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
+                                    .expect("Parse date")
+                            })
+                            .collect();
 
-                        DataFrame::new(vec![month, day, weekday, hour])
+                        let month: Vec<f32> = dates.iter().map(|d| d.month() as f32).collect();
+                        let day: Vec<f32> = dates.iter().map(|d| d.day() as f32).collect();
+                        let weekday: Vec<f32> = dates
+                            .iter()
+                            .map(|d| d.weekday().number_from_monday() as f32 - 1.0)
+                            .collect();
+                        let hour: Vec<f32> = dates.iter().map(|d| d.hour() as f32).collect();
+
+                        let month_series = Column::new("month".into(), month);
+                        let day_series = Column::new("day".into(), day);
+                        let weekday_series = Column::new("weekday".into(), weekday);
+                        let hour_series = Column::new("hour".into(), hour);
+
+                        DataFrame::new(vec![month_series, day_series, weekday_series, hour_series])
                             .unwrap()
-                            .to_ndarray::<Float32Type>()
+                            .to_ndarray::<Float32Type>(IndexOrder::C)
                             .unwrap()
                             .into_dimensionality::<ndarray::Ix2>()
                             .unwrap()
                     }
                     TimeEmbed::Fixed => {
-                        let dates: Vec<chrono::NaiveDateTime> = date_series
-                            .utf8()
+                        let dates: Vec<chrono::NaiveDateTime> = df
+                            .slice(start_idx as i64, slice_len)
+                            .column("date")
+                            .unwrap()
+                            .str()
                             .unwrap()
                             .into_no_null_iter()
                             .map(|s| {
                                 chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S")
-                                    .unwrap()
+                                    .expect("Parse date")
                             })
                             .collect();
                         time_features(&dates, "h")
                     }
                 };
 
-                let data_x = data.slice(s![start_idx..end_idx, ..]).to_owned();
-                let data_y = data.slice(s![start_idx..end_idx, ..]).to_owned();
+                let data_x_array = data.slice(s![start_idx..end_idx, ..]).to_owned();
+                let data_y_array = data.slice(s![start_idx..end_idx, ..]).to_owned();
+
+                let shape_x = data_x_array.shape().to_vec();
+                let data_x = Tensor::from_data(
+                    TensorData::new(data_x_array.into_raw_vec_and_offset().0, shape_x),
+                    device,
+                );
+
+                let shape_y = data_y_array.shape().to_vec();
+                let data_y = Tensor::from_data(
+                    TensorData::new(data_y_array.into_raw_vec_and_offset().0, shape_y),
+                    device,
+                );
+
+                let shape_stamp = data_stamp_array.shape().to_vec();
+                let data_stamp = Tensor::from_data(
+                    TensorData::new(data_stamp_array.into_raw_vec_and_offset().0, shape_stamp),
+                    device,
+                );
 
                 Self {
                     data_x,
@@ -207,8 +229,8 @@ impl ETTHourDataset {
     }
 }
 
-impl Dataset<ETTHourItem> for ETTHourDataset {
-    fn get(&self, index: usize) -> Option<ETTHourItem> {
+impl<B: Backend> Dataset<TimeSeriesItem<B>> for ETTHourDataset<B> {
+    fn get(&self, index: usize) -> Option<TimeSeriesItem<B>> {
         if index >= self.len() {
             return None;
         }
@@ -217,12 +239,16 @@ impl Dataset<ETTHourItem> for ETTHourDataset {
         let r_begin = s_end - self.label_len;
         let r_end = r_begin + self.label_len + self.pred_len;
 
-        let seq_x = self.data_x.slice(s![s_begin..s_end, ..]).to_owned();
-        let seq_y = self.data_y.slice(s![r_begin..r_end, ..]).to_owned();
-        let seq_x_mark = self.data_stamp.slice(s![s_begin..s_end, ..]).to_owned();
-        let seq_y_mark = self.data_stamp.slice(s![r_begin..r_end, ..]).to_owned();
+        let dim_x = self.data_x.dims()[1];
+        let dim_mark = self.data_stamp.dims()[1];
 
-        Some(ETTHourItem {
+        // Slicing in Burn: ranges for each dimension
+        let seq_x = self.data_x.clone().slice([s_begin..s_end, 0..dim_x]);
+        let seq_y = self.data_y.clone().slice([r_begin..r_end, 0..dim_x]);
+        let seq_x_mark = self.data_stamp.clone().slice([s_begin..s_end, 0..dim_mark]);
+        let seq_y_mark = self.data_stamp.clone().slice([r_begin..r_end, 0..dim_mark]);
+
+        Some(TimeSeriesItem {
             seq_x,
             seq_y,
             seq_x_mark,
@@ -231,12 +257,55 @@ impl Dataset<ETTHourItem> for ETTHourDataset {
     }
 
     fn len(&self) -> usize {
-        let len_x = self.data_x.len_of(Axis(0));
+        let len_x = self.data_x.dims()[0];
         let required = self.seq_len + self.pred_len;
         if len_x >= required {
             len_x - required + 1
         } else {
             0
         }
+    }
+}
+#[cfg(test)]
+mod tests {
+    use burn::{tensor::TensorData, tensor::Tolerance, Tensor};
+    use clap::Parser;
+
+    use super::ETTHourDataset;
+    use crate::args::Args;
+    use crate::test_py::execute_data_provider_test;
+
+    #[test]
+    fn test_ett_hour_dataset() {
+        type B = burn::backend::wgpu::Wgpu;
+        let py_dataset_result = execute_data_provider_test().unwrap();
+        let device = Default::default();
+        let args = Args::parse_from(vec![
+            "test",
+            "--data-path",
+            "tests/data/ETT-small/ETTh1.csv",
+            "--feature-type",
+            "Single",
+            "--target",
+            "OT",
+            "--time-embed",
+            "Fixed",
+        ]);
+        let rust_dataset = ETTHourDataset::<B>::new(&args, super::ExpFlag::Train, &device);
+        let py_tensor_x = Tensor::<B, 2>::from_data(
+            TensorData::new(py_dataset_result.0, rust_dataset.data_x.shape()),
+            &device,
+        )
+        .to_data();
+        let rust_tensor_x = rust_dataset.data_x.to_data();
+        py_tensor_x.assert_approx_eq::<f32>(&rust_tensor_x, Tolerance::default());
+
+        let py_tensor_stamp = Tensor::<B, 2>::from_data(
+            TensorData::new(py_dataset_result.1, rust_dataset.data_stamp.shape()),
+            &device,
+        )
+        .to_data();
+        let rust_tensor_stamp = rust_dataset.data_stamp.to_data();
+        py_tensor_stamp.assert_approx_eq::<f32>(&rust_tensor_stamp, Tolerance::default());
     }
 }
