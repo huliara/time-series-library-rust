@@ -1,4 +1,3 @@
-use crate::exp::Exp;
 use crate::{args::Args, exp::get_exp_name};
 use burn::record::CompactRecorder;
 use burn::train::metric::{AccuracyMetric, LossMetric};
@@ -7,7 +6,6 @@ use burn::{
     module::AutodiffModule,
     optim::{adaptor::OptimizerAdaptor, decay::WeightDecayConfig, Adam, AdamConfig},
     tensor::backend::AutodiffBackend,
-    train::LearnerBuilder,
 };
 
 use std::time::Instant;
@@ -29,9 +27,7 @@ impl ExpLongTermForecast {
         let _train_data = (); // self._get_data(flag='train')
         let _vali_data = (); // self._get_data(flag='val')
         let _test_data = (); // self._get_data(flag='test')
-        
-        // TODO: Config and Model initialization
-        /*
+
         let optimizer: OptimizerAdaptor<Adam, M, B> = AdamConfig::new()
             .with_beta_1(0.9)
             .with_beta_2(0.999)
@@ -40,21 +36,6 @@ impl ExpLongTermForecast {
             .init();
 
         let device = B::Device::default();
-
-        let leaner = LearnerBuilder::new(self.exp_name.clone())
-            .metric_train_numeric(AccuracyMetric::new())
-            .metric_valid_numeric(AccuracyMetric::new())
-            .metric_train_numeric(LossMetric::new())
-            .metric_valid_numeric(LossMetric::new())
-            .with_file_checkpointer(CompactRecorder::new())
-            .num_epochs(self.args.train_epochs)
-            .summary()
-            .build(
-                config.model.init::<B>(&device),
-                config.optimizer.init(),
-                config.learning_rate,
-            );
-        */
 
         let path = format!("{}/{}", args.checkpoints, "setting_placeholder");
         if !std::path::Path::new(&path).exists() {
@@ -74,11 +55,11 @@ impl ExpLongTermForecast {
         // Loop epochs
         // for epoch in 0..self.args.train_epochs { ... }
     }
-    
+
     fn _select_optimizer(&self, _args: &Args) {
         // TODO
     }
-    
+
     fn _select_criterion(&self) {
         // TODO
     }

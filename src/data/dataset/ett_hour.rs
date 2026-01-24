@@ -118,7 +118,7 @@ impl<B: Backend> ETTHourDataset<B> {
                     FeatureType::Single => df
                         .clone()
                         .lazy()
-                        .select([col(&args.target.to_string())])
+                        .select([col(args.target.to_string())])
                         .collect()
                         .unwrap()
                         .to_ndarray::<Float32Type>(IndexOrder::C)
@@ -132,7 +132,7 @@ impl<B: Backend> ETTHourDataset<B> {
                 scaler.fit(&train_data);
                 let data = scaler.transform(&data_array);
 
-                let slice_len = (end_idx - start_idx) as usize;
+                let slice_len = end_idx - start_idx;
 
                 let data_stamp_array: Array2<f32> = match args.embed {
                     TimeEmbed::TimeF => {
@@ -282,14 +282,14 @@ mod tests {
         let device = Default::default();
         let args = Args::parse_from(vec![
             "test",
+            "long-term-forecast",
+            "single",
+            "ot",
+            "fixed",
+            "wgpu",
             "--data-path",
             "tests/data/ETT-small/ETTh1.csv",
-            "--feature-type",
-            "Single",
-            "--target",
-            "OT",
-            "--time-embed",
-            "Fixed",
+            "--skip-training",
         ]);
         let rust_dataset = ETTHourDataset::<B>::new(&args, super::ExpFlag::Train, &device);
         let py_tensor_x = Tensor::<B, 2>::from_data(

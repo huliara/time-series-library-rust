@@ -74,9 +74,20 @@ impl fmt::Display for TimeEmbed {
 #[derive(Parser, Debug, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    // basic config
-    #[arg(long, short)]
+    #[arg(value_enum)]
     pub task_name: TaskName,
+
+    #[arg(value_enum)]
+    pub feature_type: FeatureType,
+
+    #[arg(value_enum)]
+    pub target: Target,
+
+    #[arg(value_enum)]
+    pub embed: TimeEmbed,
+
+    #[arg(value_enum)]
+    pub backend: Backend,
 
     #[arg(long)]
     pub skip_training: bool,
@@ -96,12 +107,6 @@ pub struct Args {
 
     #[arg(long, default_value = "ETTh1.csv")]
     pub data_path: String,
-
-    #[arg(long)]
-    pub feature_type: FeatureType,
-
-    #[arg(long)]
-    pub target: Target,
 
     #[arg(long, default_value = "h")]
     pub freq: String,
@@ -181,9 +186,6 @@ pub struct Args {
     #[arg(long, default_value_t = 0.1)]
     pub dropout: f64,
 
-    #[arg(long)]
-    pub embed: TimeEmbed,
-
     #[arg(long, default_value = "gelu")]
     pub activation: String,
 
@@ -238,9 +240,6 @@ pub struct Args {
 
     #[arg(long, default_value_t = false)]
     pub use_amp: bool,
-
-    #[arg(long)]
-    pub backend: Backend,
     // GPU
     #[arg(long, default_value_t = true)]
     pub use_gpu: bool,

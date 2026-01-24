@@ -1,8 +1,8 @@
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyList};
 use std::env;
 
 pub fn execute_python_forward(model_name: &str) -> PyResult<Vec<f32>> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let sys = py.import("sys")?;
 
         // 1. Set up sys.path
@@ -41,7 +41,7 @@ pub fn execute_python_forward(model_name: &str) -> PyResult<Vec<f32>> {
 }
 
 pub fn execute_data_provider_test() -> PyResult<(Vec<f32>, Vec<f32>)> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let sys = py.import("sys")?;
 
         // 1. Set up sys.path
@@ -59,16 +59,16 @@ pub fn execute_data_provider_test() -> PyResult<(Vec<f32>, Vec<f32>)> {
         sys.setattr("argv", argv)?;
 
         // 3. Import the module
-        let module = py.import("_data_provider_test")?;
+        let module = py.import("_dataset_test")?;
 
         // 4. Get the function
-        let func = module.getattr("data_provider_test")?;
+        let func = module.getattr("dataset_test")?;
 
         // 5. Call the function
         let result = func.call0()?;
 
         // 6. Extract tuple (x, y)
-        let tuple_result = result.downcast::<pyo3::types::PyTuple>()?;
+        let tuple_result = result.cast::<pyo3::types::PyTuple>()?;
 
         let x_val = tuple_result.get_item(0)?;
         let data_stamp = tuple_result.get_item(1)?;
