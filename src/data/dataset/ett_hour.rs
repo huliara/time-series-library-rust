@@ -18,8 +18,8 @@ pub struct TimeSeriesItem<B: Backend> {
 
 #[derive(Clone, Debug)]
 pub struct StandardScaler {
-    pub mean: Array1<f32>,
-    pub scale: Array1<f32>,
+    pub mean: Array1<f64>,
+    pub scale: Array1<f64>,
 }
 
 impl StandardScaler {
@@ -30,7 +30,7 @@ impl StandardScaler {
         }
     }
 
-    pub fn fit(&mut self, data: &Array2<f32>) {
+    pub fn fit(&mut self, data: &Array2<f64>) {
         self.mean = data.mean_axis(Axis(0)).expect("Mean axis 0 failed");
         // Using ddof=0 for consistency with sklearn's StandardScaler which uses biased estimator by default
         self.scale = data.std_axis(Axis(0), 0.0);
@@ -38,11 +38,11 @@ impl StandardScaler {
         self.scale.mapv_inplace(|x| if x == 0.0 { 1.0 } else { x });
     }
 
-    pub fn transform(&self, data: &Array2<f32>) -> Array2<f32> {
+    pub fn transform(&self, data: &Array2<f64>) -> Array2<f64> {
         (data - &self.mean) / &self.scale
     }
 
-    pub fn inverse_transform(&self, data: &Array2<f32>) -> Array2<f32> {
+    pub fn inverse_transform(&self, data: &Array2<f64>) -> Array2<f64> {
         (data * &self.scale) + &self.mean
     }
 }
@@ -96,7 +96,7 @@ impl<B: Backend> ETTHourDataset<B> {
                     ExpFlag::Test => (border1s.2, border2s.2),
                 };
 
-                let data_array: Array2<f32> = match args.feature_type {
+                let data_array: Array2<f64> = match args.feature_type {
                     FeatureType::Multi => df
                         .clone()
                         .lazy()
@@ -111,7 +111,7 @@ impl<B: Backend> ETTHourDataset<B> {
                         ])
                         .collect()
                         .unwrap()
-                        .to_ndarray::<Float32Type>(IndexOrder::C)
+                        .to_ndarray::<Float64Type>(IndexOrder::C)
                         .unwrap()
                         .into_dimensionality::<ndarray::Ix2>()
                         .unwrap(),
@@ -121,7 +121,7 @@ impl<B: Backend> ETTHourDataset<B> {
                         .select([col(args.target.to_string())])
                         .collect()
                         .unwrap()
-                        .to_ndarray::<Float32Type>(IndexOrder::C)
+                        .to_ndarray::<Float64Type>(IndexOrder::C)
                         .unwrap()
                         .into_dimensionality::<ndarray::Ix2>()
                         .unwrap(),
@@ -224,7 +224,7 @@ impl<B: Backend> ETTHourDataset<B> {
         }
     }
 
-    pub fn inverse_transform(&self, data: &Array2<f32>) -> Array2<f32> {
+    pub fn inverse_transform(&self, data: &Array2<f64>) -> Array2<f64> {
         self.scaler.inverse_transform(data)
     }
 }
@@ -285,20 +285,13 @@ mod tests {
             "long-term-forecast",
             "single",
             "ot",
-            "fixed",
+            "time-f",
             "wgpu",
             "--data-path",
-            "tests/data/ETT-small/ETTh1.csv",
+            "data/ETT/ETTh1.csv",
             "--skip-training",
         ]);
         let rust_dataset = ETTHourDataset::<B>::new(&args, super::ExpFlag::Train, &device);
-        let py_tensor_x = Tensor::<B, 2>::from_data(
-            TensorData::new(py_dataset_result.0, rust_dataset.data_x.shape()),
-            &device,
-        )
-        .to_data();
-        let rust_tensor_x = rust_dataset.data_x.to_data();
-        py_tensor_x.assert_approx_eq::<f32>(&rust_tensor_x, Tolerance::default());
 
         let py_tensor_stamp = Tensor::<B, 2>::from_data(
             TensorData::new(py_dataset_result.1, rust_dataset.data_stamp.shape()),
@@ -306,6 +299,15 @@ mod tests {
         )
         .to_data();
         let rust_tensor_stamp = rust_dataset.data_stamp.to_data();
+        assert_eq!(py_tensor_stamp.shape, rust_tensor_stamp.shape);
         py_tensor_stamp.assert_approx_eq::<f32>(&rust_tensor_stamp, Tolerance::default());
+        let py_tensor_x = Tensor::<B, 2>::from_data(
+            TensorData::new(py_dataset_result.0, rust_dataset.data_x.shape()),
+            &device,
+        )
+        .to_data();
+        let rust_tensor_x = rust_dataset.data_x.to_data();
+        py_tensor_x.assert_approx_eq::<f32>(&rust_tensor_x, Tolerance::default());
+        assert_eq!(py_tensor_x.shape, rust_tensor_x.shape);
     }
 }
