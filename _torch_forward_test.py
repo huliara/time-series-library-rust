@@ -300,13 +300,13 @@ def torch_forward_test(name):
                 outputs = module(batch_x, batch_x_mark, dec_inp, batch_y_mark)
             f_dim = -1 if args.features == "MS" else 0
             outputs = outputs[:, -args.pred_len :, f_dim:]
-            batch_y = batch_y[:, -args.pred_len :, f_dim:].to(device)
-            pred = outputs.detach()
-            all_outputs.append(pred)
+
+            all_outputs.append(outputs)
     all_outputs = torch.cat(all_outputs, dim=0)
-    return all_outputs.cpu().numpy()
+    print("all_outputs shape:", all_outputs.shape)
+    return all_outputs
 
 
 if __name__ == "__main__":
-    output = torch_forward_test("PatchTST")
+    output = torch_forward_test("DLinear")
     print("output shape:", output.shape)

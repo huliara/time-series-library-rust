@@ -240,7 +240,7 @@ pub struct Args {
 
     #[arg(long, default_value_t = false)]
     pub use_amp: bool,
-    // GPU
+
     #[arg(long, default_value_t = true)]
     pub use_gpu: bool,
 

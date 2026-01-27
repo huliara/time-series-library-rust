@@ -55,7 +55,7 @@ class Args_mock:
         self.seg_len = 96
 
         # optimization
-        self.num_workers = 10
+        self.num_workers = 0
         self.itr = 1
         self.train_epochs = 10
         self.batch_size = 32
