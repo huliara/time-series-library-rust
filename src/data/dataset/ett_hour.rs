@@ -268,7 +268,7 @@ impl<B: Backend> Dataset<TimeSeriesItem<B>> for ETTHourDataset<B> {
 }
 #[cfg(test)]
 mod tests {
-    use burn::{tensor::TensorData, tensor::Tolerance, Tensor};
+    use burn::{tensor::TensorData, tensor::Tolerance};
     use clap::Parser;
 
     use super::ETTHourDataset;
@@ -293,19 +293,12 @@ mod tests {
         ]);
         let rust_dataset = ETTHourDataset::<B>::new(&args, super::ExpFlag::Train, &device);
 
-        let py_tensor_stamp = Tensor::<B, 2>::from_data(
-            TensorData::new(py_dataset_result.1, rust_dataset.data_stamp.shape()),
-            &device,
-        )
-        .to_data();
+        let py_tensor_stamp = TensorData::new(py_dataset_result.1, rust_dataset.data_stamp.shape());
+
         let rust_tensor_stamp = rust_dataset.data_stamp.to_data();
         assert_eq!(py_tensor_stamp.shape, rust_tensor_stamp.shape);
         py_tensor_stamp.assert_approx_eq::<f32>(&rust_tensor_stamp, Tolerance::default());
-        let py_tensor_x = Tensor::<B, 2>::from_data(
-            TensorData::new(py_dataset_result.0, rust_dataset.data_x.shape()),
-            &device,
-        )
-        .to_data();
+        let py_tensor_x = TensorData::new(py_dataset_result.0, rust_dataset.data_x.shape());
         let rust_tensor_x = rust_dataset.data_x.to_data();
         py_tensor_x.assert_approx_eq::<f32>(&rust_tensor_x, Tolerance::default());
         assert_eq!(py_tensor_x.shape, rust_tensor_x.shape);

@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use crate::args::Args;
 
-use crate::data::batcher::TimeSeriesBatch;
 use crate::data::{
-    batcher::TimeSeriesBatcher,
+    batcher::{TimeSeriesBatch, TimeSeriesBatcher},
     dataset::ett_hour::{ETTHourDataset, ExpFlag},
 };
-use burn::data::dataloader::DataLoader;
-use burn::{data::dataloader::DataLoaderBuilder, prelude::Backend};
+use burn::{
+    data::dataloader::{DataLoader, DataLoaderBuilder},
+    prelude::Backend,
+};
 
 pub fn create_data_loader<B: Backend>(
     args: &Args,

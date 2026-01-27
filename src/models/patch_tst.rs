@@ -213,9 +213,7 @@ impl<B: Backend> PatchTST<B> {
         // Burn broadcasting:
 
         let dec_out = dec_out.mul(stdev); // Broadcast dim 1
-        let dec_out = dec_out.add(means);
-
-        dec_out
+        dec_out.add(means)
     }
 
     pub fn forward(
@@ -236,5 +234,50 @@ impl<B: Backend> PatchTST<B> {
         }
         // Implement other tasks similarly... (omitted for brevity as Forecast is main)
         panic!("Only forecast implemented for now");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use burn::{
+        backend::Wgpu,
+        tensor::{Distribution, Tensor},
+    };
+
+    #[test]
+    fn test_patch_tst_forecast() {
+        type B = Wgpu;
+        let config = PatchTSTConfig {
+            task_name: "long_term_forecast".to_string(),
+            seq_len: 96,
+            pred_len: 24,
+            enc_in: 7,
+            d_model: 64,
+            d_ff: 256,
+            n_heads: 4,
+            e_layers: 2,
+            dropout: 0.1,
+            factor: 5,
+            activation: "gelu".to_string(),
+            patch_len: 16,
+            stride: 8,
+            num_class: 10,
+        };
+
+        let device = Default::default();
+        let model = PatchTST::<B>::new(config, &device);
+
+        let batch_size = 2;
+        let x_enc = Tensor::<B, 3>::random(
+            [batch_size, 96, 7],
+            Distribution::Uniform(0.0, 1.0),
+            &device,
+        );
+
+        let output = model.forward(x_enc, None, None, None, None);
+
+        assert_eq!(output.dims(), [batch_size, 24, 7]);
     }
 }

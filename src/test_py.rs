@@ -1,4 +1,4 @@
-use pyo3::{prelude::*, types::PyList};
+use pyo3::prelude::*;
 use std::env;
 
 pub fn execute_python_forward(model_name: &str) -> PyResult<Vec<f32>> {
@@ -15,14 +15,8 @@ pub fn execute_python_forward(model_name: &str) -> PyResult<Vec<f32>> {
         let path = sys.getattr("path")?;
         path.call_method1("append", (current_dir_str,))?;
 
-        // 2. Mock sys.argv to avoid argparse errors when running from 'cargo test'
-        //    which passes its own arguments.
-        //    We pass just the script name, effectively simulating no arguments (default config).
-        let argv = vec!["test_rust_model.py"];
-        sys.setattr("argv", argv)?;
-
         // 3. Import the module
-        let module = py.import("test_rust_model")?;
+        let module = py.import("_torch_forward_test")?;
 
         // 4. Get the function
         let func = module.getattr("torch_forward_test")?;
@@ -54,10 +48,6 @@ pub fn execute_data_provider_test() -> PyResult<(Vec<f32>, Vec<f32>)> {
         let path = sys.getattr("path")?;
         path.call_method1("append", (current_dir_str,))?;
 
-        // 2. Mock sys.argv
-        let argv = vec!["_data_provider_test.py"];
-        sys.setattr("argv", argv)?;
-
         // 3. Import the module
         let module = py.import("_dataset_test")?;
 
@@ -82,4 +72,21 @@ pub fn execute_data_provider_test() -> PyResult<(Vec<f32>, Vec<f32>)> {
 
         Ok((x_vec, data_stamp_vec))
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_execute_python_forward() {
+        let model_name = "PatchTST";
+        let result: Result<Vec<f32>, PyErr> = execute_python_forward(model_name);
+        if let Err(e) = &result {
+            panic!("Python execution failed: {:?}", e);
+        }
+        let output = result.unwrap();
+        // We expect some output; exact values depend on the Python implementation.
+        assert!(!output.is_empty());
+    }
 }

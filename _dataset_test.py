@@ -1,12 +1,11 @@
 from data_provider.data_loader import Dataset_ETT_hour
 import numpy as np
 import argparse
+from _args_mock import Args_mock
 
 
 def dataset_test():
-    parser = argparse.ArgumentParser()
-    args = parser.parse_args()
-    args.augmentation_ratio = 0.0  # for test, do not use augmentation
+    args = Args_mock()
     dataset = Dataset_ETT_hour(
         args=args,
         root_path="./data/ETT/",

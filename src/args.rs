@@ -77,6 +77,7 @@ pub struct Args {
     #[arg(value_enum)]
     pub task_name: TaskName,
 
+    //corresponds to features
     #[arg(value_enum)]
     pub feature_type: FeatureType,
 
@@ -85,7 +86,6 @@ pub struct Args {
 
     #[arg(value_enum)]
     pub embed: TimeEmbed,
-
     #[arg(value_enum)]
     pub backend: Backend,
 
