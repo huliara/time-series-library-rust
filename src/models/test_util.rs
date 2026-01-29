@@ -6,7 +6,7 @@ use burn::{
     Tensor,
 };
 use std::any;
-pub fn assert_module_forward<B: Backend, M: Forecast<B>>(module: M) {
+pub fn assert_module_forecast<B: Backend, M: Forecast<B>>(module: M) {
     let data_loader = setup_test_dataloader();
     let mut rust_vec = Vec::with_capacity(3);
     for batch in data_loader.iter() {

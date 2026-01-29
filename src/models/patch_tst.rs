@@ -225,7 +225,7 @@ impl<B: Backend> Forecast<B> for PatchTST<B> {
 
 #[cfg(test)]
 mod tests {
-    use super::{super::test_util::assert_module_forward, PatchTST, PatchTSTConfig};
+    use super::{super::test_util::assert_module_forecast, PatchTST, PatchTSTConfig};
     use burn::backend::Wgpu;
 
     #[test]
@@ -251,6 +251,6 @@ mod tests {
         let device = Default::default();
         let model = PatchTST::<B>::new(config, &device);
 
-        assert_module_forward::<B, PatchTST<B>>(model);
+        assert_module_forecast::<B, PatchTST<B>>(model);
     }
 }
