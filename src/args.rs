@@ -1,8 +1,8 @@
-use core::fmt;
-
 use clap::{Parser, ValueEnum};
+use core::fmt;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum TaskName {
     AnomalyDetection,
     Classification,
