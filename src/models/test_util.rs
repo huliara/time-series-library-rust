@@ -1,16 +1,16 @@
 use crate::data::test_utils::setup_test_dataloader;
-use crate::models::forward::Forward;
+use crate::models::traits::Forecast;
 use crate::test_py::execute_python_forward;
 use burn::{
     tensor::{backend::Backend, TensorData},
     Tensor,
 };
 use std::any;
-pub fn assert_module_forward<B: Backend, M: Forward<B>>(module: M) {
+pub fn assert_module_forward<B: Backend, M: Forecast<B>>(module: M) {
     let data_loader = setup_test_dataloader();
     let mut rust_vec = Vec::with_capacity(3);
     for batch in data_loader.iter() {
-        let output = module.forward(batch.x, batch.x_mark, batch.y, batch.y_mark);
+        let output = module.forecast(batch.x, batch.x_mark, batch.y, batch.y_mark);
         rust_vec.push(output);
     }
     let rust_tensor = Tensor::cat(rust_vec, 0).to_data();

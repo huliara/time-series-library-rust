@@ -1,3 +1,4 @@
+use super::traits::Forecast;
 use crate::layers::{
     embed::patch_embedding::PatchEmbedding,
     self_attention_family::{AttentionLayer, FullAttention},
@@ -165,10 +166,15 @@ impl<B: Backend> PatchTST<B> {
             enc_in: configs.enc_in,
         }
     }
-
-    fn forecast(&self, x_enc: Tensor<B, 3>, _x_mark_enc: Option<Tensor<B, 3>>) -> Tensor<B, 3> {
-        // Normalization (RevIN equivalent inline)
-        // x_enc: [Batch, Length, NVars]
+}
+impl<B: Backend> Forecast<B> for PatchTST<B> {
+    fn forecast(
+        &self,
+        x_enc: Tensor<B, 3>,
+        x_mark_enc: Tensor<B, 3>,
+        _x_dec: Tensor<B, 3>,
+        _x_mark_dec: Tensor<B, 3>,
+    ) -> Tensor<B, 3> {
         let means = x_enc.clone().mean_dim(1); // [Batch, 1, NVars]
         let x_enc = x_enc.sub(means.clone()); // Broadcast on dim 1
 
@@ -215,36 +221,12 @@ impl<B: Backend> PatchTST<B> {
         let dec_out = dec_out.mul(stdev); // Broadcast dim 1
         dec_out.add(means)
     }
-
-    pub fn forward(
-        &self,
-        x_enc: Tensor<B, 3>,
-        x_mark_enc: Option<Tensor<B, 3>>,
-        _x_dec: Option<Tensor<B, 3>>,
-        _x_mark_dec: Option<Tensor<B, 3>>,
-        _mask: Option<Tensor<B, 4>>,
-    ) -> Tensor<B, 3> {
-        if self.task_name == "long_term_forecast" || self.task_name == "short_term_forecast" {
-            let dec_out = self.forecast(x_enc, x_mark_enc);
-            // Return last pred_len if sequence is longer? Python code: dec_out[:, -self.pred_len:, :]
-            // FlattenHead outputs typically exact size.
-            // If implicit FlattenHead size mismatch (e.g. padding), slice.
-            // Our FlattenHead output size `pred_len`.
-            return dec_out;
-        }
-        // Implement other tasks similarly... (omitted for brevity as Forecast is main)
-        panic!("Only forecast implemented for now");
-    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use burn::{
-        backend::Wgpu,
-        tensor::{Distribution, Tensor},
-    };
+    use super::{super::test_util::assert_module_forward, PatchTST, PatchTSTConfig};
+    use burn::backend::Wgpu;
 
     #[test]
     fn test_patch_tst_forecast() {
@@ -269,15 +251,6 @@ mod tests {
         let device = Default::default();
         let model = PatchTST::<B>::new(config, &device);
 
-        let batch_size = 2;
-        let x_enc = Tensor::<B, 3>::random(
-            [batch_size, 96, 7],
-            Distribution::Uniform(0.0, 1.0),
-            &device,
-        );
-
-        let output = model.forward(x_enc, None, None, None, None);
-
-        assert_eq!(output.dims(), [batch_size, 24, 7]);
+        assert_module_forward::<B, PatchTST<B>>(model);
     }
 }
