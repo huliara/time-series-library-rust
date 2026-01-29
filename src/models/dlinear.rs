@@ -1,4 +1,4 @@
-use crate::args::TaskName;
+use crate::args::Args;
 use crate::layers::decomposition::SeriesDecomp;
 use crate::models::traits::{AnomalyDetection, Classification, Forecast, Imputation};
 use burn::{
@@ -10,16 +10,7 @@ use burn::{
 
 #[derive(Config, Debug)]
 pub struct DLinearConfig {
-    pub task_name: TaskName,
-    pub seq_len: usize,
-    #[config(default = 96)]
-    pub pred_len: usize,
-    pub moving_avg: usize,
-    pub enc_in: usize,
-    #[config(default = false)]
-    pub individual: bool,
-    #[config(default = 0)]
-    pub num_class: usize,
+    pub args: Args,
 }
 
 #[derive(Module, Debug)]

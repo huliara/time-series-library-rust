@@ -12,11 +12,11 @@ pub enum TaskName {
     ZeroShotForecast,
 }
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Backend {
     Wgpu,
 }
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum FeatureType {
     Single,
     Multi,
@@ -32,7 +32,7 @@ impl fmt::Display for FeatureType {
     }
 }
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum Target {
     HUFL,
     HULL,
@@ -56,7 +56,7 @@ impl fmt::Display for Target {
         write!(f, "{}", s)
     }
 }
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum TimeEmbed {
     TimeF,
     Fixed,
@@ -71,7 +71,7 @@ impl fmt::Display for TimeEmbed {
     }
 }
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, Clone, Deserialize, Serialize)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     #[arg(value_enum)]
