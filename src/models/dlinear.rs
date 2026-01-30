@@ -1,4 +1,4 @@
-use crate::args::Args;
+use crate::args::{Args, TaskName};
 use crate::layers::decomposition::SeriesDecomp;
 use crate::models::traits::{AnomalyDetection, Classification, Forecast, Imputation};
 use burn::{
@@ -13,43 +13,15 @@ pub struct DLinearConfig {
     pub args: Args,
 }
 
-#[derive(Module, Debug)]
-pub struct DLinear<B: Backend> {
-    decomposition: SeriesDecomp<B>,
-
-    // Shared (individual = false)
-    shared_seasonal: Option<Linear<B>>,
-    shared_trend: Option<Linear<B>>,
-
-    // Individual (individual = true)
-    // Weights: [channels, output_len, input_len]
-    individual_seasonal_weight: Option<Param<Tensor<B, 3>>>,
-    individual_trend_weight: Option<Param<Tensor<B, 3>>>,
-    // Bias: [channels, output_len]
-    individual_seasonal_bias: Option<Param<Tensor<B, 2>>>,
-    individual_trend_bias: Option<Param<Tensor<B, 2>>>,
-
-    // Classification
-    projection: Option<Linear<B>>,
-
-    task_name: String,
-    individual: bool,
-    enc_in: usize,
-    seq_len: usize,
-    pred_len: usize,
-}
-
-impl<B: Backend> DLinear<B> {
-    pub fn new(config: DLinearConfig, device: &B::Device) -> Self {
-        let task_name = config.task_name;
+impl DLinearConfig {
+    pub fn init<B: Backend>(self, device: &B::Device) -> DLinear<B> {
+        let config = &self.args;
         let seq_len = config.seq_len;
-        let mut pred_len = config.pred_len;
-        if task_name == "classification"
-            || task_name == "anomaly_detection"
-            || task_name == "imputation"
-        {
-            pred_len = seq_len;
-        }
+        let pred_len = match config.task_name {
+            TaskName::LongTermForecast => config.pred_len,
+            TaskName::ShortTermForecast => config.pred_len,
+            _ => config.seq_len,
+        };
 
         let decomposition: SeriesDecomp<B> = SeriesDecomp::new(config.moving_avg);
         let individual = config.individual;
@@ -130,13 +102,13 @@ impl<B: Backend> DLinear<B> {
             individual_trend_bias = Some(Param::from_tensor(b_t));
         }
 
-        let projection = if task_name == "classification" {
+        let projection = if config.task_name == TaskName::Classification {
             Some(LinearConfig::new(enc_in * seq_len, config.num_class).init(device))
         } else {
             None
         };
 
-        Self {
+        DLinear {
             decomposition,
             shared_seasonal,
             shared_trend,
@@ -145,14 +117,34 @@ impl<B: Backend> DLinear<B> {
             individual_seasonal_bias,
             individual_trend_bias,
             projection,
-            task_name,
             individual,
             enc_in,
             seq_len,
             pred_len,
         }
     }
+}
 
+#[derive(Module, Debug)]
+pub struct DLinear<B: Backend> {
+    decomposition: SeriesDecomp<B>,
+
+    shared_seasonal: Option<Linear<B>>,
+    shared_trend: Option<Linear<B>>,
+
+    individual_seasonal_weight: Option<Param<Tensor<B, 3>>>,
+    individual_trend_weight: Option<Param<Tensor<B, 3>>>,
+    individual_seasonal_bias: Option<Param<Tensor<B, 2>>>,
+    individual_trend_bias: Option<Param<Tensor<B, 2>>>,
+
+    projection: Option<Linear<B>>,
+    individual: bool,
+    enc_in: usize,
+    seq_len: usize,
+    pred_len: usize,
+}
+
+impl<B: Backend> DLinear<B> {
     fn encoder(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
         // x: [batch, seq_len, channels]
         let (seasonal_init, trend_init) = self.decomposition.forward(x);
@@ -270,20 +262,25 @@ mod tests {
     use super::*;
     use crate::models::test_util::assert_module_forecast;
     use burn::backend::wgpu::Wgpu;
+    use clap::Parser;
     #[test]
     fn test_dlinear_forecast() {
         type B = Wgpu;
         let device = Default::default();
-        let config = DLinearConfig {
-            task_name: "forecast".to_string(),
-            seq_len: 96,
-            pred_len: 24,
-            moving_avg: 25,
-            enc_in: 7,
-            individual: false,
-            num_class: 0,
-        };
-        let model = DLinear::<B>::new(config, &device);
+        let args = Args::parse_from(vec![
+            "test",
+            "long-term-forecast",
+            "single",
+            "ot",
+            "time-f",
+            "wgpu",
+            "--data-path",
+            "data/ETT/ETTh1.csv",
+            "--skip-training",
+        ]);
+
+        let model = DLinearConfig::new(args).init(&device);
+
         assert_module_forecast::<B, DLinear<B>>(model);
     }
 }

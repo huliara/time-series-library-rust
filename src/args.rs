@@ -357,6 +357,8 @@ pub struct Args {
 
     #[arg(long, default_value_t = 1)]
     pub pos: i32,
+    #[arg(long, default_value_t = 10)]
+    pub num_class: usize,
 
     #[arg(long, default_value = "./checkpoints/")]
     pub checkpoints: String,
