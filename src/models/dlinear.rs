@@ -1,6 +1,7 @@
 use crate::args::{Args, TaskName};
 use crate::layers::decomposition::SeriesDecomp;
 use crate::models::traits::{AnomalyDetection, Classification, Forecast, Imputation};
+use burn::nn::Initializer;
 use burn::{
     config::Config,
     module::{Module, Param},
@@ -11,6 +12,10 @@ use burn::{
 #[derive(Config, Debug)]
 pub struct DLinearConfig {
     pub args: Args,
+    #[config(
+        default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
+    )]
+    pub initializer: Initializer,
 }
 
 impl DLinearConfig {
@@ -74,7 +79,7 @@ impl DLinearConfig {
             // We want [batch, channels, pred_len].
 
             // If we define weight W as [channels, seq_len, pred_len].
-            // Then x * W (elementwise) is not right.
+            // Then x * W (elementwise) is not right.f
 
             // Per channel c: y_c = x_c (1 x seq) @ W_c (seq x pred).
             // W shape: [channels, seq_len, pred_len].
@@ -278,8 +283,10 @@ mod tests {
             "data/ETT/ETTh1.csv",
             "--skip-training",
         ]);
-
-        let model = DLinearConfig::new(args).init(&device);
+        let initializer = Initializer::Constant { value: (0.01) };
+        let model = DLinearConfig::new(args)
+            .with_initializer(initializer)
+            .init(&device);
 
         assert_module_forecast::<B, DLinear<B>>(model);
     }

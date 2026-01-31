@@ -275,7 +275,7 @@ def torch_forward_test(name):
         if "weight" in name:
             nn.init.constant_(param, 0.01)
         elif "bias" in name:
-            nn.init.constant_(param, 0.0)
+            nn.init.constant_(param, 0.01)
 
     _, data_loader = data_provider(args, flag="test")
     all_outputs = []

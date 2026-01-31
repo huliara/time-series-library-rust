@@ -6954,6 +6954,7 @@ dependencies = [
  "clap",
  "csv",
  "ndarray 0.16.1",
+ "num-traits",
  "polars",
  "pyo3",
  "rand 0.8.5",
