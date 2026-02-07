@@ -40,8 +40,12 @@ impl DLinearConfig {
         let mut individual_trend_bias = None;
 
         if !individual {
-            let mut s = LinearConfig::new(seq_len, pred_len).init(device);
-            let mut t = LinearConfig::new(seq_len, pred_len).init(device);
+            let mut s = LinearConfig::new(seq_len, pred_len)
+                .with_initializer(self.initializer.clone())
+                .init(device);
+            let mut t = LinearConfig::new(seq_len, pred_len)
+                .with_initializer(self.initializer.clone())
+                .init(device);
 
             // Init weights: (1/seq_len) * ones
             // Burn Linear weights are [in, out]. Python: [out, in] (printed as such) but stored as [out, in] usually in PyTorch?
@@ -108,7 +112,11 @@ impl DLinearConfig {
         }
 
         let projection = if config.task_name == TaskName::Classification {
-            Some(LinearConfig::new(enc_in * seq_len, config.num_class).init(device))
+            Some(
+                LinearConfig::new(enc_in * seq_len, config.num_class)
+                    .with_initializer(self.initializer.clone())
+                    .init(device),
+            )
         } else {
             None
         };

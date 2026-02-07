@@ -271,12 +271,17 @@ def torch_forward_test(name):
     module: nn.Module = model_dict[name].Model(args).float()
     module.to(device)
     module.eval()
-    for name, param in module.named_parameters():
-        if "weight" in name:
-            nn.init.constant_(param, 0.01)
-        elif "bias" in name:
-            nn.init.constant_(param, 0.01)
-
+    if name == "DLinear":
+        # Initialize DLinear weights and biases for testing
+        for name, param in module.named_parameters():
+            if "bias" in name:
+                nn.init.constant_(param, 0.01)
+    else:
+        for name, param in module.named_parameters():
+            if "weight" in name:
+                nn.init.constant_(param, 0.01)
+            elif "bias" in name:
+                nn.init.constant_(param, 0.01)
     _, data_loader = data_provider(args, flag="test")
     all_outputs = []
     with torch.no_grad():

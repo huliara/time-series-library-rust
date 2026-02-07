@@ -226,28 +226,29 @@ impl<B: Backend> Forecast<B> for PatchTST<B> {
 #[cfg(test)]
 mod tests {
     use super::{super::test_util::assert_module_forecast, PatchTST, PatchTSTConfig};
+    use crate::args::Args;
     use burn::backend::Wgpu;
+    use burn::nn::Initializer;
+    use clap::Parser;
 
     #[test]
     fn test_patch_tst_forecast() {
         type B = Wgpu;
-        let config = PatchTSTConfig {
-            task_name: "long_term_forecast".to_string(),
-            seq_len: 96,
-            pred_len: 24,
-            enc_in: 7,
-            d_model: 64,
-            d_ff: 256,
-            n_heads: 4,
-            e_layers: 2,
-            dropout: 0.1,
-            factor: 5,
-            activation: "gelu".to_string(),
-            patch_len: 16,
-            stride: 8,
-            num_class: 10,
-        };
-
+        let args = Args::parse_from(vec![
+            "test",
+            "long-term-forecast",
+            "single",
+            "ot",
+            "time-f",
+            "wgpu",
+            "--data-path",
+            "data/ETT/ETTh1.csv",
+            "--skip-training",
+        ]);
+        let initializer = Initializer::Constant { value: (0.01) };
+        let config = PatchTSTConfig::new(args)
+            .with_initializer(initializer)
+            .init(&device);
         let device = Default::default();
         let model = PatchTST::<B>::new(config, &device);
 

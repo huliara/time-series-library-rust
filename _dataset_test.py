@@ -1,6 +1,5 @@
 from data_provider.data_loader import Dataset_ETT_hour
 import numpy as np
-import argparse
 from _args_mock import Args_mock
 
 
