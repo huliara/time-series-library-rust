@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use core::fmt;
 use serde::{Deserialize, Serialize};
 
@@ -71,6 +71,8 @@ impl fmt::Display for TimeEmbed {
     }
 }
 
+#[derive(Subcommand, Debug, Clone, Deserialize, Serialize)]
+pub enum ModelConfig {}
 #[derive(Parser, Debug, Clone, Deserialize, Serialize)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
@@ -95,8 +97,8 @@ pub struct Args {
     #[arg(long, default_value = "test")]
     pub model_id: String,
 
-    #[arg(long, default_value = "Autoformer")]
-    pub model: String,
+    #[command(subcommand)]
+    pub model_config: ModelConfig,
 
     // data loader
     #[arg(long, default_value = "ETTh1")]

@@ -1,4 +1,5 @@
 use super::traits::Forecast;
+use crate::args::TaskName;
 use crate::layers::{
     embed::patch_embedding::PatchEmbedding,
     self_attention_family::{AttentionLayer, FullAttention},
@@ -7,84 +8,54 @@ use crate::layers::{
 use burn::{
     config::Config,
     module::Module,
-    nn::{Dropout, DropoutConfig, Linear, LinearConfig},
+    nn::{Dropout, DropoutConfig, Initializer, Linear, LinearConfig},
     tensor::{backend::Backend, Tensor},
 };
+use serde::{Deserialize, Serialize};
+
+use clap::Args;
+#[derive(Debug, Clone, Deserialize, Serialize, Args)]
+pub struct PatchTSTArgs {
+    #[arg(long)]
+    pub seq_len: usize,
+    #[arg(long)]
+    pub pred_len: usize,
+    #[arg(long)]
+    pub num_class: usize,
+    #[arg(long)]
+    pub d_model: usize,
+    #[arg(long, default_value_t = 16)]
+    pub patch_len: usize,
+    #[arg(long, default_value_t = 8)]
+    pub stride: usize,
+    #[arg(long)]
+    pub enc_in: usize,
+    #[arg(long)]
+    pub e_layers: usize,
+    #[arg(long)]
+    pub n_heads: usize,
+    #[arg(long)]
+    pub d_ff: usize,
+    #[arg(long)]
+    pub dropout: f64,
+    #[arg(long)]
+    pub factor: usize,
+    #[arg(long)]
+    pub activation: String,
+}
 
 #[derive(Config, Debug)]
 pub struct PatchTSTConfig {
-    pub task_name: String,
-    pub seq_len: usize,
-    pub pred_len: usize,
-    pub enc_in: usize,
-    pub d_model: usize,
-    pub d_ff: usize,
-    pub n_heads: usize,
-    pub e_layers: usize,
-    pub dropout: f64,
-    pub factor: usize,
-    pub activation: String,
-    pub patch_len: usize,
-    pub stride: usize,
-    pub num_class: usize,
+    model_args: PatchTSTArgs,
+    #[config(
+        default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
+    )]
+    pub initializer: Initializer,
 }
 
-#[derive(Module, Debug)]
-pub struct FlattenHead<B: Backend> {
-    linear: Linear<B>,
-    dropout: Dropout,
-    nf: usize,
-}
-
-impl<B: Backend> FlattenHead<B> {
-    pub fn new(nf: usize, target_window: usize, head_dropout: f64, device: &B::Device) -> Self {
-        let linear = LinearConfig::new(nf, target_window).init(device);
-        let dropout = DropoutConfig::new(head_dropout).init();
-
-        Self {
-            linear,
-            dropout,
-            nf,
-        }
-    }
-
-    pub fn forward(&self, x: Tensor<B, 4>) -> Tensor<B, 3> {
-        // x: [bs, nvars, d_model, patch_num]
-        // Flatten start_dim=-2 (last two dims: d_model, patch_num)
-        // Check dimension order: Burn usually [Batch, ...].
-        // Argument x passed here comes from Model which permuted it.
-        // Model logic: enc_out = enc_out.permute(0, 1, 3, 2) -> [bs, nvars, d_model, patch_num]
-
-        // Burn flatten:
-
-        let x_flat = x.flatten(3, 4); // [bs, nvars, d_model * patch_num]
-        let x_out = self.linear.forward(x_flat);
-        self.dropout.forward(x_out)
-    }
-}
-
-#[derive(Module, Debug)]
-pub struct PatchTST<B: Backend> {
-    task_name: String,
-    patch_embedding: PatchEmbedding<B>,
-    encoder: Encoder<B>, // Burn's Encoder
-
-    // Heads
-    head: Option<FlattenHead<B>>,
-    classification_projection: Option<Linear<B>>,
-
-    // Configs
-    seq_len: usize,
-    pred_len: usize,
-    num_class: usize,
-    d_model: usize,
-    patch_len: usize,
-    stride: usize,
-    enc_in: usize,
-}
-
-impl<B: Backend> PatchTST<B> {
-    pub fn new(configs: PatchTSTConfig, device: &B::Device) -> Self {
+impl PatchTSTConfig {
+    pub fn init<B: Backend>(&self, task_name: TaskName, device: &B::Device) -> PatchTST<B> {
+        let configs = &self.model_args;
         let padding = configs.stride;
         let patch_embedding = PatchEmbedding::new(
             configs.d_model,
@@ -125,8 +96,8 @@ impl<B: Backend> PatchTST<B> {
         let head_nf =
             configs.d_model * ((configs.seq_len - configs.patch_len) / configs.stride + 2);
 
-        let head = if configs.task_name == "long_term_forecast"
-            || configs.task_name == "short_term_forecast"
+        let head = if task_name == TaskName::LongTermForecast
+            || task_name == TaskName::ShortTermForecast
         {
             Some(FlattenHead::new(
                 head_nf,
@@ -134,7 +105,7 @@ impl<B: Backend> PatchTST<B> {
                 configs.dropout,
                 device,
             ))
-        } else if configs.task_name == "imputation" || configs.task_name == "anomaly_detection" {
+        } else if task_name == TaskName::Imputation || task_name == TaskName::AnomalyDetection {
             Some(FlattenHead::new(
                 head_nf,
                 configs.seq_len,
@@ -145,14 +116,13 @@ impl<B: Backend> PatchTST<B> {
             None
         };
 
-        let classification_projection = if configs.task_name == "classification" {
+        let classification_projection = if task_name == TaskName::Classification {
             Some(LinearConfig::new(head_nf * configs.enc_in, configs.num_class).init(device))
         } else {
             None
         };
 
-        Self {
-            task_name: configs.task_name,
+        PatchTST {
             patch_embedding,
             encoder,
             head,
@@ -167,6 +137,60 @@ impl<B: Backend> PatchTST<B> {
         }
     }
 }
+
+#[derive(Module, Debug)]
+pub struct FlattenHead<B: Backend> {
+    linear: Linear<B>,
+    dropout: Dropout,
+    nf: usize,
+}
+
+impl<B: Backend> FlattenHead<B> {
+    pub fn new(nf: usize, target_window: usize, head_dropout: f64, device: &B::Device) -> Self {
+        let linear = LinearConfig::new(nf, target_window).init(device);
+        let dropout = DropoutConfig::new(head_dropout).init();
+
+        Self {
+            linear,
+            dropout,
+            nf,
+        }
+    }
+
+    pub fn forward(&self, x: Tensor<B, 4>) -> Tensor<B, 3> {
+        // x: [bs, nvars, d_model, patch_num]
+        // Flatten start_dim=-2 (last two dims: d_model, patch_num)
+        // Check dimension order: Burn usually [Batch, ...].
+        // Argument x passed here comes from Model which permuted it.
+        // Model logic: enc_out = enc_out.permute(0, 1, 3, 2) -> [bs, nvars, d_model, patch_num]
+
+        // Burn flatten:
+
+        let x_flat = x.flatten(3, 4); // [bs, nvars, d_model * patch_num]
+        let x_out = self.linear.forward(x_flat);
+        self.dropout.forward(x_out)
+    }
+}
+
+#[derive(Module, Debug)]
+pub struct PatchTST<B: Backend> {
+    patch_embedding: PatchEmbedding<B>,
+    encoder: Encoder<B>, // Burn's Encoder
+
+    // Heads
+    head: Option<FlattenHead<B>>,
+    classification_projection: Option<Linear<B>>,
+
+    // Configs
+    seq_len: usize,
+    pred_len: usize,
+    num_class: usize,
+    d_model: usize,
+    patch_len: usize,
+    stride: usize,
+    enc_in: usize,
+}
+
 impl<B: Backend> Forecast<B> for PatchTST<B> {
     fn forecast(
         &self,
