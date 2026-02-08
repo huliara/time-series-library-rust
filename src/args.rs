@@ -1,7 +1,7 @@
+use crate::models::patch_tst::PatchTSTArgs;
 use clap::{Parser, Subcommand, ValueEnum};
 use core::fmt;
 use serde::{Deserialize, Serialize};
-
 #[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum TaskName {
     AnomalyDetection,
@@ -72,7 +72,21 @@ impl fmt::Display for TimeEmbed {
 }
 
 #[derive(Subcommand, Debug, Clone, Deserialize, Serialize)]
-pub enum ModelConfig {}
+pub enum ModelConfig {
+    PatchTST(PatchTSTArgs),
+    Transformer,
+    // Other model configs can be added here
+}
+impl fmt::Display for ModelConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            ModelConfig::PatchTST(_) => "PatchTST",
+            ModelConfig::Transformer => "Transformer",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Parser, Debug, Clone, Deserialize, Serialize)]
 #[command(author, version, about, long_about = None)]
 pub struct Args {

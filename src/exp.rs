@@ -29,7 +29,7 @@ pub fn get_exp_name(args: &Args) -> String {
         "{:?}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}",
         args.task_name,
         args.model_id,
-        args.model,
+        args.model_config,
         args.data,
         args.feature_type,
         args.seq_len,

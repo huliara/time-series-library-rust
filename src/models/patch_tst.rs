@@ -14,33 +14,33 @@ use burn::{
 use serde::{Deserialize, Serialize};
 
 use clap::Args;
-#[derive(Debug, Clone, Deserialize, Serialize, Args)]
+#[derive(Debug, Clone, Deserialize, Serialize, Args, Default)]
 pub struct PatchTSTArgs {
-    #[arg(long)]
+    #[arg(long, default_value_t = 96)]
     pub seq_len: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 96)]
     pub pred_len: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 10)]
     pub num_class: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 512)]
     pub d_model: usize,
     #[arg(long, default_value_t = 16)]
     pub patch_len: usize,
     #[arg(long, default_value_t = 8)]
     pub stride: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 7)]
     pub enc_in: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 2)]
     pub e_layers: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 8)]
     pub n_heads: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 2048)]
     pub d_ff: usize,
-    #[arg(long)]
+    #[arg(long, default_value_t = 0.1)]
     pub dropout: f64,
-    #[arg(long)]
+    #[arg(long, default_value_t = 1)]
     pub factor: usize,
-    #[arg(long)]
+    #[arg(long, default_value = "gelu")]
     pub activation: String,
 }
 
@@ -55,25 +55,30 @@ pub struct PatchTSTConfig {
 
 impl PatchTSTConfig {
     pub fn init<B: Backend>(&self, task_name: TaskName, device: &B::Device) -> PatchTST<B> {
-        let configs = &self.model_args;
-        let padding = configs.stride;
+        let padding = self.model_args.stride;
         let patch_embedding = PatchEmbedding::new(
-            configs.d_model,
-            configs.patch_len,
-            configs.stride,
+            self.model_args.d_model,
+            self.model_args.patch_len,
+            self.model_args.stride,
             padding,
-            configs.dropout,
+            self.model_args.dropout,
             device,
         );
 
         // Encoder
         // Create Encoder Layers
         let mut layers = Vec::new();
-        for _ in 0..configs.e_layers {
+        for _ in 0..self.model_args.e_layers {
             let attn_layer = AttentionLayer::new(
-                FullAttention::new(false, configs.factor, None, configs.dropout, false),
-                configs.d_model,
-                configs.n_heads,
+                FullAttention::new(
+                    false,
+                    self.model_args.factor,
+                    None,
+                    self.model_args.dropout,
+                    false,
+                ),
+                self.model_args.d_model,
+                self.model_args.n_heads,
                 None,
                 None,
                 device,
@@ -81,10 +86,10 @@ impl PatchTSTConfig {
 
             let layer = EncoderLayer::new(
                 attn_layer,
-                configs.d_model,
-                Some(configs.d_ff),
-                configs.dropout,
-                configs.activation.clone(),
+                self.model_args.d_model,
+                Some(self.model_args.d_ff),
+                self.model_args.dropout,
+                self.model_args.activation.clone(),
                 device,
             );
             layers.push(layer);
@@ -93,23 +98,24 @@ impl PatchTSTConfig {
         let encoder = Encoder::new(layers, None);
 
         // Prediction Head
-        let head_nf =
-            configs.d_model * ((configs.seq_len - configs.patch_len) / configs.stride + 2);
+        let head_nf = &self.model_args.d_model
+            * ((&self.model_args.seq_len - &self.model_args.patch_len) / &self.model_args.stride
+                + 2);
 
         let head = if task_name == TaskName::LongTermForecast
             || task_name == TaskName::ShortTermForecast
         {
             Some(FlattenHead::new(
                 head_nf,
-                configs.pred_len,
-                configs.dropout,
+                self.model_args.pred_len,
+                self.model_args.dropout,
                 device,
             ))
         } else if task_name == TaskName::Imputation || task_name == TaskName::AnomalyDetection {
             Some(FlattenHead::new(
                 head_nf,
-                configs.seq_len,
-                configs.dropout,
+                self.model_args.seq_len,
+                self.model_args.dropout,
                 device,
             ))
         } else {
@@ -117,7 +123,10 @@ impl PatchTSTConfig {
         };
 
         let classification_projection = if task_name == TaskName::Classification {
-            Some(LinearConfig::new(head_nf * configs.enc_in, configs.num_class).init(device))
+            Some(
+                LinearConfig::new(head_nf * &self.model_args.enc_in, self.model_args.num_class)
+                    .init(device),
+            )
         } else {
             None
         };
@@ -127,13 +136,13 @@ impl PatchTSTConfig {
             encoder,
             head,
             classification_projection,
-            seq_len: configs.seq_len,
-            pred_len: configs.pred_len,
-            num_class: configs.num_class,
-            d_model: configs.d_model,
-            patch_len: configs.patch_len,
-            stride: configs.stride,
-            enc_in: configs.enc_in,
+            seq_len: self.model_args.seq_len,
+            pred_len: self.model_args.pred_len,
+            num_class: self.model_args.num_class,
+            d_model: self.model_args.d_model,
+            patch_len: self.model_args.patch_len,
+            stride: self.model_args.stride,
+            enc_in: self.model_args.enc_in,
         }
     }
 }
@@ -181,7 +190,7 @@ pub struct PatchTST<B: Backend> {
     head: Option<FlattenHead<B>>,
     classification_projection: Option<Linear<B>>,
 
-    // Configs
+    // &self.model_args
     seq_len: usize,
     pred_len: usize,
     num_class: usize,
@@ -250,31 +259,20 @@ impl<B: Backend> Forecast<B> for PatchTST<B> {
 #[cfg(test)]
 mod tests {
     use super::{super::test_util::assert_module_forecast, PatchTST, PatchTSTConfig};
-    use crate::args::Args;
+    use crate::models::patch_tst::PatchTSTArgs;
     use burn::backend::Wgpu;
     use burn::nn::Initializer;
-    use clap::Parser;
 
     #[test]
     fn test_patch_tst_forecast() {
         type B = Wgpu;
-        let args = Args::parse_from(vec![
-            "test",
-            "long-term-forecast",
-            "single",
-            "ot",
-            "time-f",
-            "wgpu",
-            "--data-path",
-            "data/ETT/ETTh1.csv",
-            "--skip-training",
-        ]);
-        let initializer = Initializer::Constant { value: (0.01) };
-        let config = PatchTSTConfig::new(args)
-            .with_initializer(initializer)
-            .init(&device);
         let device = Default::default();
-        let model = PatchTST::<B>::new(config, &device);
+        let task_name = crate::args::TaskName::LongTermForecast;
+        let args = PatchTSTArgs::default();
+        let initializer = Initializer::Constant { value: (0.01) };
+        let model = PatchTSTConfig::new(args)
+            .with_initializer(initializer)
+            .init(task_name, &device);
 
         assert_module_forecast::<B, PatchTST<B>>(model);
     }

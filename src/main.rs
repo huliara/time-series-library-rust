@@ -5,10 +5,8 @@ mod layers;
 mod models;
 mod test_py;
 use args::Args;
-use burn::backend::wgpu::WgpuDevice;
 use burn::backend::{Autodiff, Wgpu};
 use clap::Parser;
-use exp::anomaly_detection::ExpAnomalyDetection;
 // use exp::classification::ExpClassification;
 // use exp::imputation::ExpImputation;
 use exp::long_term_forecast::ExpLongTermForecast;
@@ -22,18 +20,6 @@ fn main() {
 
     type Backend = Wgpu;
     type AutodiffBackend = Autodiff<Backend>;
-    let device = WgpuDevice::default();
-
-    if args.model == "Transformer" {
-        let _model: Transformer<Backend> = Transformer::new(&args, &device);
-        println!("Model initialized successfully.");
-        // println!("Model: {:?}", model); // Debug print might be too large
-    } else {
-        println!(
-            "Model {} not implemented yet. Please use --model Transformer",
-            args.model
-        );
-    }
 
     match args.task_name {
         args::TaskName::AnomalyDetection => todo!(),
