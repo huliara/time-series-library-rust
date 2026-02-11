@@ -198,7 +198,7 @@ impl<B: Backend> FlattenHead<B> {
 #[derive(Module, Debug)]
 pub struct PatchTST<B: Backend> {
     patch_embedding: PatchEmbedding<B>,
-    encoder: Encoder<B, BatchNorm<B>>, // Burn's Encoder
+    encoder: Encoder<B, BatchNorm<B>>,
     head: Option<FlattenHead<B>>,
     classification_projection: Option<Linear<B>>,
 }
@@ -262,7 +262,9 @@ mod tests {
         let device = Default::default();
         let task_name = crate::args::TaskName::LongTermForecast;
         let args = PatchTSTArgs::default();
+        print!("Args: {:?}", args);
         let initializer = Initializer::Constant { value: (0.01) };
+
         let model = PatchTSTConfig::new(args)
             .with_initializer(initializer)
             .init(task_name, &device);

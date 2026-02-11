@@ -104,3 +104,64 @@ impl<B: Backend> AttentionLayer<B> {
         (out, attn)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use burn::tensor::Shape;
+    use burn_ndarray::NdArray;
+
+    #[test]
+    fn test_attention_layer_forward() {
+        type B = NdArray;
+        let device = Default::default();
+
+        let inner_config = FullAttentionConfig {
+            mask_flag: false,
+            factor: 1,
+            scale: None,
+            attention_dropout: 0.1,
+            output_attention: true,
+            initializer: Initializer::KaimingUniform {
+                gain: 1.0 / 3.0f64.sqrt(),
+                fan_out_only: false,
+            },
+        };
+
+        let config = AttentionLayerConfig {
+            inner_attention: inner_config,
+            d_model: 32,
+            n_heads: 4,
+            d_keys: None,
+            d_values: None,
+            initializer: Initializer::KaimingUniform {
+                gain: 1.0 / 3.0f64.sqrt(),
+                fan_out_only: false,
+            },
+        };
+        let attention_layer = config.init::<B>(&device);
+
+        let b_size = 2;
+        let l = 8;
+        let s = 8;
+        let d_model = 32;
+
+        let queries = Tensor::<B, 3>::zeros([b_size, l, d_model], &device);
+        let keys = Tensor::<B, 3>::zeros([b_size, s, d_model], &device);
+        let values = Tensor::<B, 3>::zeros([b_size, s, d_model], &device);
+
+        let (out, attn) = attention_layer.forward(queries, keys, values, None);
+
+        assert_eq!(out.shape(), Shape::new([b_size, l, d_model]));
+
+        if let Some(attn_tensor) = attn {
+            assert_eq!(
+                attn_tensor.shape(),
+                Shape::new([b_size, config.n_heads, l, s])
+            );
+        } else {
+            panic!("Expected attention output");
+        }
+    }
+}

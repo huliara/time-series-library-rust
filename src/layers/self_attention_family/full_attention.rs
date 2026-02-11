@@ -82,3 +82,40 @@ impl FullAttention {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use burn::tensor::Shape;
+    use burn_ndarray::NdArray;
+
+    #[test]
+    fn test_full_attention_forward() {
+        type B = NdArray;
+        let device = Default::default();
+
+        let attention = FullAttentionConfig::new(true, 1, 0.1, true).init();
+
+        let b_size = 2;
+        let l = 4;
+        let s = 4;
+        let h = 8;
+        let e = 32;
+        let d = 32;
+
+        let queries = Tensor::<B, 4>::zeros([b_size, l, h, e], &device);
+        let keys = Tensor::<B, 4>::zeros([b_size, s, h, e], &device);
+        let values = Tensor::<B, 4>::zeros([b_size, s, h, d], &device);
+
+        let (out, attn) = attention.forward(queries, keys, values, None);
+
+        assert_eq!(out.shape(), Shape::new([b_size, l, h, d]));
+
+        if let Some(attn_tensor) = attn {
+            assert_eq!(attn_tensor.shape(), Shape::new([b_size, h, l, s]));
+        } else {
+            panic!("Expected attention output");
+        }
+    }
+}
