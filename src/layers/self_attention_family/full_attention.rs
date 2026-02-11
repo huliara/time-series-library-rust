@@ -1,0 +1,84 @@
+use super::triangular_mask::TriangularMask;
+use burn::{
+    config::Config,
+    module::Module,
+    nn::{Dropout, DropoutConfig, Initializer},
+    prelude::Bool,
+    tensor::{activation::softmax, backend::Backend, Tensor},
+};
+#[derive(Config, Debug)]
+pub struct FullAttentionConfig {
+    pub mask_flag: bool,
+    pub factor: usize,
+    pub scale: Option<f64>,
+    pub attention_dropout: f64,
+    pub output_attention: bool,
+    #[config(
+        default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
+    )]
+    pub initializer: Initializer,
+}
+
+impl FullAttentionConfig {
+    pub fn init(&self) -> FullAttention {
+        FullAttention {
+            scale: self.scale,
+            output_attention: self.output_attention,
+            dropout: DropoutConfig::new(self.attention_dropout).init(),
+            mask_flag: self.mask_flag,
+        }
+    }
+}
+
+#[derive(Module, Debug, Clone)]
+pub struct FullAttention {
+    scale: Option<f64>,
+    output_attention: bool,
+    dropout: Dropout,
+    mask_flag: bool,
+}
+
+impl FullAttention {
+    pub fn forward<B: Backend>(
+        &self,
+        queries: Tensor<B, 4>,
+        keys: Tensor<B, 4>,
+        values: Tensor<B, 4>,
+        attn_mask: Option<Tensor<B, 4, Bool>>,
+    ) -> (Tensor<B, 4>, Option<Tensor<B, 4>>) {
+        // queries: [B, L, H, E]
+        // keys: [B, S, H, E]
+        // values: [B, S, H, D]
+
+        let [b, l, _, e] = queries.dims();
+
+        let scale = self.scale.unwrap_or(1.0 / (e as f64).sqrt());
+
+        // queries: [B, L, H, E] -> [B, H, L, E]
+        let queries_perm = queries.clone().permute([0, 2, 1, 3]);
+        // keys: [B, S, H, E] -> [B, H, E, S]
+        let keys_perm = keys.clone().permute([0, 2, 3, 1]);
+
+        let mut scores = queries_perm.matmul(keys_perm);
+
+        if self.mask_flag {
+            let mask: Tensor<B, 4, Bool> = attn_mask.unwrap_or(TriangularMask::<B>::new(b, l).mask);
+            scores = scores.mask_fill(mask, -f64::INFINITY); // [B, H, L, S]
+        }
+        let attn = softmax(scores * scale, 3);
+        let attn = self.dropout.forward(attn);
+
+        // values: [B, S, H, D] -> [B, H, S, D]
+        let values_perm = values.permute([0, 2, 1, 3]);
+        let out = attn.clone().matmul(values_perm); // [B, H, L, D]
+
+        // [B, H, L, D] -> [B, L, H, D]
+        let out = out.permute([0, 2, 1, 3]);
+
+        if self.output_attention {
+            (out, Some(attn))
+        } else {
+            (out, None)
+        }
+    }
+}

@@ -1,3 +1,4 @@
+mod activation;
 mod args;
 mod data;
 mod exp;
@@ -12,7 +13,7 @@ use clap::Parser;
 use exp::long_term_forecast::ExpLongTermForecast;
 // use exp::short_term_forecast::ExpShortTermForecast;
 // use exp::zero_shot_forecast::ExpZeroShotForecast;
-use models::transformer::Transformer;
+use models::patch_tst::PatchTST;
 
 fn main() {
     let args: Args = Args::parse();
@@ -27,7 +28,7 @@ fn main() {
         args::TaskName::Imputation => todo!(),     // run_exp(ExpImputation { args }),
         args::TaskName::LongTermForecast => {
             ExpLongTermForecast::new(args.clone())
-                .train::<AutodiffBackend, Transformer<AutodiffBackend>>(&args);
+                .train::<AutodiffBackend, PatchTST<AutodiffBackend>>(&args);
         }
         args::TaskName::ShortTermForecast => todo!(), // run_exp(ExpShortTermForecast { args }),
         args::TaskName::ZeroShotForecast => todo!(),  // run_exp(ExpZeroShotForecast { args }),

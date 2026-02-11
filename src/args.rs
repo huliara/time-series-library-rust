@@ -1,7 +1,24 @@
-use crate::models::patch_tst::PatchTSTArgs;
+use crate::{activation::Activation, models::patch_tst::PatchTSTArgs};
+use burn::nn::{Gelu, Relu};
 use clap::{Parser, Subcommand, ValueEnum};
 use core::fmt;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
+pub enum ActivationArg {
+    Relu,
+    Gelu,
+}
+
+impl ActivationArg {
+    pub fn init(&self) -> Activation {
+        match self {
+            ActivationArg::Relu => Activation::ReLu(Relu),
+            ActivationArg::Gelu => Activation::GeLu(Gelu),
+        }
+    }
+}
+
 #[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
 pub enum TaskName {
     AnomalyDetection,

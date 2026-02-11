@@ -1,12 +1,44 @@
 use burn::{
+    config::Config,
     module::Module,
     nn::{
-        Dropout, DropoutConfig, Linear, LinearConfig, PositionalEncoding, PositionalEncodingConfig,
+        Dropout, DropoutConfig, Initializer, Linear, LinearConfig, PositionalEncoding,
+        PositionalEncodingConfig,
     },
-    tensor::{backend::Backend, ops::unfold::calculate_unfold_windows, Tensor},
+    tensor::{backend::Backend, Tensor},
 };
 
 use crate::layers::replication_pad_1d::ReplicationPad1d;
+
+#[derive(Config, Debug)]
+pub struct PatchEmbeddingConfig {
+    pub d_model: usize,
+    pub patch_len: usize,
+    pub stride: usize,
+    pub padding: usize,
+    pub dropout: f64,
+    #[config(
+        default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
+    )]
+    pub initializer: Initializer,
+}
+
+impl PatchEmbeddingConfig {
+    pub fn init<B: Backend>(&self, device: &B::Device) -> PatchEmbedding<B> {
+        PatchEmbedding {
+            padding_layer: ReplicationPad1d::new((0, self.padding)),
+            linear: LinearConfig::new(self.patch_len, self.d_model)
+                .with_initializer(self.initializer.clone())
+                .init(device),
+            positional_encoding: PositionalEncodingConfig::new(self.d_model)
+                .with_max_sequence_size(5000)
+                .init(device),
+            dropout: DropoutConfig::new(self.dropout).init(),
+            patch_len: self.patch_len,
+            stride: self.stride,
+        }
+    }
+}
 
 #[derive(Module, Debug)]
 pub struct PatchEmbedding<B: Backend> {
@@ -19,50 +51,38 @@ pub struct PatchEmbedding<B: Backend> {
 }
 
 impl<B: Backend> PatchEmbedding<B> {
-    pub fn new(
-        d_model: usize,
-        patch_len: usize,
-        stride: usize,
-        padding: usize,
-        _dropout: f64,
-        device: &B::Device,
-    ) -> Self {
-        Self {
-            padding_layer: ReplicationPad1d::new((0, padding)),
-            linear: LinearConfig::new(patch_len, d_model).init(device),
-            positional_encoding: PositionalEncodingConfig::new(d_model)
-                .with_max_sequence_size(5000)
-                .init(device),
-            dropout: DropoutConfig::new(_dropout).init(),
-            patch_len,
-            stride,
-        }
-    }
-
-    fn unfold(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
-        let dims = x.dims();
-        let (batch_size, n_vars, seq_len) = (dims[0], dims[1], dims[2]);
-
-        let num_patches = calculate_unfold_windows(seq_len, self.patch_len, self.stride);
-
-        let mut patches = Vec::with_capacity(num_patches);
-        for i in 0..num_patches {
-            let start = i * self.stride;
-            let end = start + self.patch_len;
-            let patch = x.clone().slice([0..batch_size, 0..n_vars, start..end]);
-            patches.push(patch);
-        }
-
-        let x: Tensor<B, 3> = Tensor::stack(patches, 0);
-        x.reshape([batch_size * n_vars, num_patches, self.patch_len])
-    }
-
     pub fn forward(&self, x: Tensor<B, 3>) -> (Tensor<B, 3>, usize) {
         let n_vars = x.dims()[1];
         let x = self.padding_layer.forward(x);
-        let x = self.unfold(x);
+        let x: Tensor<B, 4> = x.unfold(-1, self.patch_len, self.stride);
+        let x = x
+            .clone()
+            .reshape([x.dims()[0] * x.dims()[1], x.dims()[2], x.dims()[3]]);
         let x = self.linear.forward(x);
         let x = self.positional_encoding.forward(x);
         (self.dropout.forward(x), n_vars)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use burn::tensor::{Distribution, Tensor};
+
+    #[test]
+    fn test_patch_embedding_forward() {
+        let config = PatchEmbeddingConfig::new(16, 4, 2, 2, 0.1);
+
+        let device = burn::backend::wgpu::WgpuDevice::default();
+        let patch_embedding = config.init(&device);
+
+        let x = Tensor::<burn::backend::wgpu::Wgpu, 3>::random(
+            [2, 3, 10],
+            Distribution::Normal(0.0, 1.0),
+            &device,
+        );
+        let (output, n_vars) = patch_embedding.forward(x);
+
+        assert_eq!(output.dims(), [2 * 3, 5, 16]); // batch_size * n_vars, num_patches, d_model
+        assert_eq!(n_vars, 3);
     }
 }

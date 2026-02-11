@@ -313,5 +313,5 @@ def torch_forward_test(name):
 
 
 if __name__ == "__main__":
-    output = torch_forward_test("DLinear")
+    output = torch_forward_test("PatchTST")
     print("output shape:", output.shape)
