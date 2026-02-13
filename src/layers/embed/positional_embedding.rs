@@ -45,8 +45,8 @@ pub struct PositionalEmbedding<B: Backend> {
 
 impl<B: Backend> PositionalEmbedding<B> {
     pub fn forward(&self, x: &Tensor<B, 3>) -> Tensor<B, 3> {
-        let [batch_size, seq_len, _d_model] = x.dims();
-        self.pe.clone().slice([.., 0..seq_len])
+        let [_, seq_len, _d_model] = x.dims();
+        self.pe.clone().slice(s![.., 0..seq_len])
     }
 }
 

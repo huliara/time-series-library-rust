@@ -37,7 +37,7 @@ impl fmt::Display for PatchTSTActivation {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize, Args, Default)]
+#[derive(Debug, Clone, Deserialize, Serialize, Args)]
 pub struct PatchTSTArgs {
     #[arg(long, default_value_t = 96)]
     pub seq_len: usize,
@@ -83,6 +83,7 @@ impl PatchTSTConfig {
             self.model_args.patch_len,
             self.model_args.stride,
             padding,
+            5000,
             self.model_args.dropout,
         )
         .with_initializer(self.initializer.clone())
@@ -253,23 +254,62 @@ impl<B: Backend> Forecast<B> for PatchTST<B> {
 #[cfg(test)]
 mod tests {
     use super::{super::test_util::assert_module_forecast, PatchTST, PatchTSTConfig};
-    use crate::models::patch_tst::PatchTSTArgs;
+    use crate::args::{self, Args};
+    use crate::models::patch_tst::{PatchTSTActivation, PatchTSTArgs};
     use burn::backend::Wgpu;
     use burn::nn::Initializer;
+    use clap::Parser;
 
     #[test]
     fn test_patch_tst_forecast() {
         type B = Wgpu;
         let device = Default::default();
         let task_name = crate::args::TaskName::LongTermForecast;
-        let args = PatchTSTArgs::default();
-        print!("Args: {:?}", args);
-        let initializer = Initializer::Constant { value: (0.01) };
+        let args = Args::parse_from(vec![
+            "test",
+            "long-term-forecast",
+            "single",
+            "ot",
+            "time-f",
+            "wgpu",
+            "patch-tst",
+            "--activation",
+            "gelu",
+            "--seq-len",
+            "96",
+            "--pred-len",
+            "96",
+            "--num-class",
+            "10",
+            "--d-model",
+            "16",
+            "--patch-len",
+            "4",
+            "--stride",
+            "2",
+            "--enc-in",
+            "7",
+            "--e-layers",
+            "2",
+            "--n-heads",
+            "8",
+            "--d-ff",
+            "2048",
+            "--dropout",
+            "0.1",
+        ]);
+        if let args::ModelConfig::PatchTST(model_args) = &args.model_config {
+            let args = model_args.clone();
+            print!("Args: {:?}", args);
+            let initializer = Initializer::Constant { value: (0.01) };
 
-        let model = PatchTSTConfig::new(args)
-            .with_initializer(initializer)
-            .init(task_name, &device);
-        print!("Model: {:?}", model);
-        assert_module_forecast::<B, PatchTST<B>>(model);
+            let model = PatchTSTConfig::new(args)
+                .with_initializer(initializer)
+                .init(task_name, &device);
+            print!("Model: {:?}", model);
+            assert_module_forecast::<B, PatchTST<B>>(model);
+        } else {
+            debug_assert!(false, "Model config is not PatchTST");
+        };
     }
 }

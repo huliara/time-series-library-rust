@@ -128,9 +128,6 @@ pub struct Args {
     #[arg(long, default_value = "test")]
     pub model_id: String,
 
-    #[command(subcommand)]
-    pub model_config: ModelConfig,
-
     // data loader
     #[arg(long, default_value = "ETTh1")]
     pub data: String,
@@ -395,4 +392,7 @@ pub struct Args {
 
     #[arg(long, default_value = "./checkpoints/")]
     pub checkpoints: String,
+
+    #[command(subcommand)]
+    pub model_config: ModelConfig,
 }
