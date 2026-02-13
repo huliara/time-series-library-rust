@@ -1,14 +1,14 @@
 use burn::{
     config::Config,
     module::Module,
-    nn::{
-        Dropout, DropoutConfig, Initializer, Linear, LinearConfig, PositionalEncoding,
-        PositionalEncodingConfig,
-    },
+    nn::{Dropout, DropoutConfig, Initializer, Linear, LinearConfig},
     tensor::{backend::Backend, Tensor},
 };
 
-use crate::layers::replication_pad_1d::ReplicationPad1d;
+use crate::layers::{
+    embed::positional_embedding::{PositionalEmbedding, PositionalEmbeddingConfig},
+    replication_pad_1d::ReplicationPad1d,
+};
 
 #[derive(Config, Debug)]
 pub struct PatchEmbeddingConfig {
@@ -16,6 +16,7 @@ pub struct PatchEmbeddingConfig {
     pub patch_len: usize,
     pub stride: usize,
     pub padding: usize,
+    pub max_len: usize,
     pub dropout: f64,
     #[config(
         default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
@@ -25,15 +26,27 @@ pub struct PatchEmbeddingConfig {
 
 impl PatchEmbeddingConfig {
     pub fn init<B: Backend>(&self, device: &B::Device) -> PatchEmbedding<B> {
+        let padding_layer = ReplicationPad1d::new((0, self.padding));
+        let linear = LinearConfig::new(self.patch_len, self.d_model)
+            .with_initializer(self.initializer.clone())
+            .init(device);
+        println!(
+            "Initialized Linear layer with input dim and output dim {}",
+            linear,
+        );
+
+        let positional_embedding =
+            PositionalEmbeddingConfig::new(self.d_model, self.max_len).init(device);
+        println!(
+            "Initialized Positional Embedding with d_model {}",
+            self.d_model
+        );
+        let dropout = DropoutConfig::new(self.dropout).init();
         PatchEmbedding {
-            padding_layer: ReplicationPad1d::new((0, self.padding)),
-            linear: LinearConfig::new(self.patch_len, self.d_model)
-                .with_initializer(self.initializer.clone())
-                .init(device),
-            positional_encoding: PositionalEncodingConfig::new(self.d_model)
-                .with_max_sequence_size(5000)
-                .init(device),
-            dropout: DropoutConfig::new(self.dropout).init(),
+            padding_layer,
+            linear,
+            positional_embedding,
+            dropout,
             patch_len: self.patch_len,
             stride: self.stride,
         }
@@ -44,7 +57,7 @@ impl PatchEmbeddingConfig {
 pub struct PatchEmbedding<B: Backend> {
     padding_layer: ReplicationPad1d,
     linear: Linear<B>,
-    positional_encoding: PositionalEncoding<B>,
+    positional_embedding: PositionalEmbedding<B>,
     dropout: Dropout,
     patch_len: usize,
     stride: usize,
@@ -59,7 +72,7 @@ impl<B: Backend> PatchEmbedding<B> {
             .clone()
             .reshape([x.dims()[0] * x.dims()[1], x.dims()[2], x.dims()[3]]);
         let x = self.linear.forward(x);
-        let x = self.positional_encoding.forward(x);
+        let x = self.positional_embedding.forward(&x) + x;
         (self.dropout.forward(x), n_vars)
     }
 }
@@ -70,7 +83,7 @@ mod tests {
 
     #[test]
     fn test_patch_embedding_forward() {
-        let config = PatchEmbeddingConfig::new(16, 4, 2, 2, 0.1);
+        let config = PatchEmbeddingConfig::new(16, 4, 2, 2, 5000, 0.1);
 
         let device = burn::backend::wgpu::WgpuDevice::default();
         let patch_embedding = config.init(&device);

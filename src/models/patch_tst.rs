@@ -2,16 +2,19 @@ use core::fmt;
 
 use super::traits::Forecast;
 use crate::args::{ActivationArg, TaskName};
-use crate::layers::embed::patch_embedding::PatchEmbeddingConfig;
-use crate::layers::self_attention_family::attention_layer::AttentionLayerConfig;
-use crate::layers::self_attention_family::full_attention::FullAttentionConfig;
-use crate::layers::transformer_enc_dec::{EncoderConfig, EncoderLayerConfig};
-use crate::layers::{embed::patch_embedding::PatchEmbedding, transformer_enc_dec::Encoder};
-use burn::nn::BatchNorm;
+
+use crate::layers::{
+    embed::patch_embedding::PatchEmbedding,
+    embed::patch_embedding::PatchEmbeddingConfig,
+    self_attention_family::attention_layer::AttentionLayerConfig,
+    self_attention_family::full_attention::FullAttentionConfig,
+    transformer_enc_dec::Encoder,
+    transformer_enc_dec::{EncoderConfig, EncoderLayerConfig},
+};
 use burn::{
     config::Config,
     module::Module,
-    nn::{Dropout, DropoutConfig, Initializer, Linear, LinearConfig},
+    nn::{BatchNorm, Dropout, DropoutConfig, Initializer, Linear, LinearConfig},
     tensor::{backend::Backend, Tensor},
 };
 use serde::{Deserialize, Serialize};
@@ -83,8 +86,7 @@ impl PatchTSTConfig {
             self.model_args.dropout,
         )
         .with_initializer(self.initializer.clone())
-        .init::<B>(device);
-
+        .init(device);
         let encoder_layer_config = EncoderLayerConfig {
             attention_config: AttentionLayerConfig {
                 inner_attention: FullAttentionConfig {
@@ -110,7 +112,6 @@ impl PatchTSTConfig {
             },
             initializer: self.initializer.clone(),
         };
-
         let encoder = EncoderConfig::new(
             self.model_args.e_layers,
             encoder_layer_config,
@@ -118,7 +119,7 @@ impl PatchTSTConfig {
         )
         .with_initializer(self.initializer.clone())
         .init::<B>(device);
-
+        println!("encoder {}", encoder);
         // Prediction Head
         let head_nf = self.model_args.d_model
             * ((self.model_args.seq_len - self.model_args.patch_len) / self.model_args.stride + 2);

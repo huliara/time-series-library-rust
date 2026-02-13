@@ -1,8 +1,10 @@
 use crate::{
     args::TimeEmbed,
     layers::embed::{
-        positional_embedding::PositionalEmbedding, temporal_embedding::TemporalEmbedding,
-        time_feature_embedding::TimeFeatureEmbedding, token_embedding::TokenEmbedding,
+        positional_embedding::{PositionalEmbedding, PositionalEmbeddingConfig},
+        temporal_embedding::TemporalEmbedding,
+        time_feature_embedding::TimeFeatureEmbedding,
+        token_embedding::TokenEmbedding,
     },
 };
 use burn::{
@@ -44,7 +46,7 @@ impl<B: Backend> DataEmbedding<B> {
         device: &B::Device,
     ) -> Self {
         let value_embedding = TokenEmbedding::new(c_in, d_model, device);
-        let position_embedding = PositionalEmbedding::new(d_model, 5000, device);
+        let position_embedding = PositionalEmbeddingConfig::new(d_model, 5000).init(device);
 
         let temporal_embedding = if embed_type != TimeEmbed::TimeF {
             TemporalEmbed::Temporal(TemporalEmbedding::new(d_model, &embed_type, &freq, device))
