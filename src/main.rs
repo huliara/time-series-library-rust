@@ -6,14 +6,14 @@ mod layers;
 mod models;
 mod test_py;
 use args::exp::TaskName;
-use args::Args;
+use args::RootArgs;
 use burn::backend::{Autodiff, Wgpu};
 use clap::Parser;
 use exp::long_term_forecast::ExpLongTermForecast;
 use models::patch_tst::PatchTST;
 
 fn main() {
-    let args: Args = Args::parse();
+    let args: RootArgs = RootArgs::parse();
     println!("Args: {:?}", args);
 
     type Backend = Wgpu;

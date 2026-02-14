@@ -1,5 +1,8 @@
 use super::util::*;
-use crate::args::{feature_type::FeatureType, time_embed::TimeEmbed, Args};
+use crate::args::{
+    data_config::DataConfig, feature_type::FeatureType, time_embed::TimeEmbed,
+    time_lengths::TimeLengths,
+};
 use burn::{
     data::dataset::Dataset,
     tensor::{backend::Backend, Tensor, TensorData},
@@ -65,11 +68,14 @@ pub enum ExpFlag {
 }
 
 impl<B: Backend> ETTHourDataset<B> {
-    pub fn new(args: &Args, flag: ExpFlag, device: &B::Device) -> Self {
+    pub fn new(
+        args: &DataConfig,
+        lengths: &TimeLengths,
+        flag: ExpFlag,
+        device: &B::Device,
+    ) -> Self {
         // Default size
-        let seq_len = args.seq_len;
-        let label_len = args.label_len;
-        let pred_len = args.pred_len;
+
         let path = PathBuf::from(&args.data_path);
         let df = CsvReadOptions::default()
             .with_has_header(true)
@@ -81,8 +87,8 @@ impl<B: Backend> ETTHourDataset<B> {
             Ok(df) => {
                 let border1s = (
                     0,
-                    12 * 30 * 24 - seq_len,
-                    12 * 30 * 24 + 4 * 30 * 24 - seq_len,
+                    12 * 30 * 24 - lengths.seq_len,
+                    12 * 30 * 24 + 4 * 30 * 24 - lengths.seq_len,
                 );
                 let border2s: (usize, usize, usize) = (
                     12 * 30 * 24,
@@ -212,9 +218,9 @@ impl<B: Backend> ETTHourDataset<B> {
                     data_x,
                     data_y,
                     data_stamp,
-                    seq_len,
-                    label_len,
-                    pred_len,
+                    seq_len: lengths.seq_len,
+                    label_len: lengths.label_len,
+                    pred_len: lengths.pred_len,
                     scaler,
                 }
             }
@@ -268,30 +274,20 @@ impl<B: Backend> Dataset<TimeSeriesItem<B>> for ETTHourDataset<B> {
 }
 #[cfg(test)]
 mod tests {
-    use burn::{tensor::TensorData, tensor::Tolerance};
-    use clap::Parser;
-
     use super::ETTHourDataset;
-    use crate::args::Args;
+    use crate::args::data_config::DataConfig;
+    use crate::args::time_lengths::TimeLengths;
     use crate::test_py::execute_data_provider_test;
-
+    use burn::{tensor::TensorData, tensor::Tolerance};
     #[test]
     fn test_ett_hour_dataset() {
         type B = burn::backend::wgpu::Wgpu;
         let py_dataset_result = execute_data_provider_test().unwrap();
         let device = Default::default();
-        let args = Args::parse_from(vec![
-            "test",
-            "long-term-forecast",
-            "single",
-            "ot",
-            "time-f",
-            "wgpu",
-            "--data-path",
-            "data/ETT/ETTh1.csv",
-            "--skip-training",
-        ]);
-        let rust_dataset = ETTHourDataset::<B>::new(&args, super::ExpFlag::Train, &device);
+        let data_config = DataConfig::default();
+        let lengths = TimeLengths::default();
+        let rust_dataset =
+            ETTHourDataset::<B>::new(&data_config, &lengths, super::ExpFlag::Train, &device);
 
         let py_tensor_stamp = TensorData::new(py_dataset_result.1, rust_dataset.data_stamp.shape());
 

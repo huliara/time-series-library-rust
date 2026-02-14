@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::args::Args;
+use crate::args::{data_config::DataConfig, time_lengths::TimeLengths};
 
 use crate::data::{
     batcher::{TimeSeriesBatch, TimeSeriesBatcher},
@@ -12,48 +12,58 @@ use burn::{
 };
 
 pub fn create_data_loader<B: Backend>(
-    args: &Args,
+    data_config: &DataConfig,
+    lengths: &TimeLengths,
+    batch_size: usize,
+    seed: u64,
     flag: ExpFlag,
 ) -> Arc<dyn DataLoader<B, TimeSeriesBatch<B>>> {
     let device = B::Device::default();
-    let dataset: ETTHourDataset<B> = ETTHourDataset::new(args, flag, &device);
+    let dataset: ETTHourDataset<B> = ETTHourDataset::new(&data_config, &lengths, flag, &device);
     match flag {
         ExpFlag::Train => DataLoaderBuilder::new(TimeSeriesBatcher::default())
-            .batch_size(args.batch_size)
-            .shuffle(args.seed)
+            .batch_size(batch_size)
+            .shuffle(seed)
             .build(dataset),
         ExpFlag::Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
-            .batch_size(args.batch_size)
+            .batch_size(batch_size)
             .build(dataset),
         ExpFlag::Test => DataLoaderBuilder::new(TimeSeriesBatcher::default())
-            .batch_size(args.batch_size)
+            .batch_size(batch_size)
             .build(dataset),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_py::execute_dataloader_test;
+    use crate::{
+        args::{feature_type::FeatureType, target::Target, time_embed::TimeEmbed},
+        test_py::execute_dataloader_test,
+    };
     use burn::backend::wgpu::Wgpu;
-    use clap::Parser;
 
     use super::*;
-    use crate::args::Args;
+
     #[test]
     fn test_create_dataloader() {
         type B = Wgpu;
-        let args = Args::parse_from(vec![
-            "test",
-            "long-term-forecast",
-            "single",
-            "ot",
-            "time-f",
-            "wgpu",
-            "--data-path",
-            "data/ETT/ETTh1.csv",
-            "--skip-training",
-        ]);
-        let data_loader = create_data_loader::<B>(&args, ExpFlag::Train);
+        let data_config = DataConfig {
+            data: "ETTh1".to_string(),
+            feature_type: FeatureType::Single,
+            target: Target::OT,
+            embed: TimeEmbed::TimeF,
+            root_path: "./".to_string(),
+            data_path: "data/ETT/ETTh1.csv".to_string(),
+        };
+        let lengths = TimeLengths {
+            seq_len: 96,
+            label_len: 48,
+            pred_len: 96,
+        };
+        let batch_size = 32;
+        let seed = 42;
+        let data_loader =
+            create_data_loader::<B>(&data_config, &lengths, batch_size, seed, ExpFlag::Train);
         let py_dataloader_output =
             execute_dataloader_test().expect("Failed to execute dataloader test");
 

@@ -1,6 +1,5 @@
-use crate::{args::Args, exp::get_exp_name};
-use burn::record::CompactRecorder;
-use burn::train::metric::{AccuracyMetric, LossMetric};
+use crate::args::RootArgs as Args;
+use crate::exp::get_exp_name;
 use burn::{
     backend::wgpu::Wgpu,
     module::AutodiffModule,

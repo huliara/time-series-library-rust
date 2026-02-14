@@ -1,11 +1,10 @@
-use crate::args::Args;
-
 pub mod anomaly_detection;
 pub mod classification;
 pub mod imputation;
 pub mod long_term_forecast;
 pub mod short_term_forecast;
 pub mod zero_shot_forecast;
+use crate::args::RootArgs as Args;
 
 pub trait Exp {
     fn train(&mut self, arg: &Args);
@@ -30,11 +29,11 @@ pub fn get_exp_name(args: &Args) -> String {
         args.task_name,
         args.model_id,
         args.model_config,
-        args.data,
-        args.feature_type,
-        args.seq_len,
-        args.label_len,
-        args.pred_len,
+        args.data_config.data,
+        args.data_config.feature_type,
+        args.time_lengths.seq_len,
+        args.time_lengths.label_len,
+        args.time_lengths.pred_len,
         args.d_model,
         args.n_heads,
         args.e_layers,
@@ -43,7 +42,7 @@ pub fn get_exp_name(args: &Args) -> String {
         args.expand,
         args.d_conv,
         args.factor,
-        args.embed,
+        args.data_config.embed,
         args.distil,
         args.des,
     )

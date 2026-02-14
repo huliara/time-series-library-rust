@@ -234,7 +234,7 @@ impl<B: Backend> Forecast<B> for PatchTST<B> {
 mod tests {
     use super::{super::test_util::assert_module_forecast, PatchTST, PatchTSTConfig};
     use crate::args::model_config::ModelConfig;
-    use crate::args::Args;
+    use crate::args::RootArgs;
     use burn::backend::Wgpu;
     use burn::nn::Initializer;
     use clap::Parser;
@@ -243,8 +243,10 @@ mod tests {
     fn test_patch_tst_forecast() {
         type B = Wgpu;
         let device = Default::default();
-        let root_args = Args::parse_from(vec![
+        let root_args = RootArgs::parse_from(vec![
             "test",
+            "--task-name",
+            "long-term-forecast",
             "--feature-type",
             "single",
             "--target",

@@ -2,8 +2,9 @@ use clap::ValueEnum;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum FeatureType {
+    #[default]
     Single,
     Multi,
 }

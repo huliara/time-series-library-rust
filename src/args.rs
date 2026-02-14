@@ -1,34 +1,28 @@
 pub mod activation;
 pub mod backend;
+pub mod data_config;
 pub mod exp;
 pub mod feature_type;
 pub mod model_config;
 pub mod target;
 pub mod time_embed;
+pub mod time_lengths;
 use self::exp::TaskName;
-use crate::args::{
-    backend::Backend, feature_type::FeatureType, model_config::ModelConfig, target::Target,
-    time_embed::TimeEmbed,
-};
+use self::time_lengths::TimeLengths;
+use crate::args::{backend::Backend, data_config::DataConfig, model_config::ModelConfig};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-
 #[derive(Parser, Debug, Clone, Deserialize, Serialize)]
 #[command(name = "exp")]
 #[command(author, version, about, long_about = None)]
-pub struct Args {
+pub struct RootArgs {
     #[arg(long, value_enum)]
     pub task_name: TaskName,
+    #[command(flatten)]
+    pub data_config: DataConfig,
+    #[command(flatten)]
+    pub time_lengths: TimeLengths,
 
-    //corresponds to features
-    #[arg(long, value_enum)]
-    pub feature_type: FeatureType,
-
-    #[arg(long, value_enum)]
-    pub target: Target,
-
-    #[arg(long, value_enum)]
-    pub embed: TimeEmbed,
     #[arg(long, value_enum)]
     pub backend: Backend,
 
@@ -41,29 +35,11 @@ pub struct Args {
     #[arg(long, default_value = "test")]
     pub model_id: String,
 
-    #[arg(long, default_value = "ETTh1")]
-    pub data: String,
-
-    #[arg(long, default_value = "./data/ETT/")]
-    pub root_path: String,
-
-    #[arg(long, default_value = "ETTh1.csv")]
-    pub data_path: String,
-
     #[arg(long, default_value = "h")]
     pub freq: String,
 
     #[arg(long, default_value = "./result/")]
     pub result_path: String,
-    // forecasting task
-    #[arg(long, default_value_t = 96)]
-    pub seq_len: usize,
-
-    #[arg(long, default_value_t = 48)]
-    pub label_len: usize,
-
-    #[arg(long, default_value_t = 96)]
-    pub pred_len: usize,
 
     #[arg(long, default_value = "Monthly")]
     pub seasonal_patterns: String,

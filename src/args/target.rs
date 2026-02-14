@@ -2,7 +2,7 @@ use clap::ValueEnum;
 use core::fmt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default)]
 pub enum Target {
     HUFL,
     HULL,
@@ -10,6 +10,7 @@ pub enum Target {
     MULL,
     LUFL,
     LULL,
+    #[default]
     OT,
 }
 impl fmt::Display for Target {
