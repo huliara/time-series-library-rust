@@ -8,11 +8,12 @@ def dataset_test():
     dataset = Dataset_ETT_hour(
         args=args,
         root_path="./data/ETT/",
-        flag="train",
+        flag="test",
         features="S",
+        size=[args.seq_len, args.label_len, args.pred_len],
         data_path="ETTh1.csv",
         scale=True,
-        timeenc=0,
+        timeenc=1,
         freq="h",
     )
     x: np.ndarray = dataset.data_x

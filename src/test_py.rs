@@ -71,7 +71,7 @@ pub fn execute_dataloader_test() -> PyResult<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<
         let func = get_python_fnction(
             py,
             "_dataloader_test".to_string(),
-            "dataset_test".to_string(),
+            "dataloader_test".to_string(),
         );
 
         // 5. Call the function
@@ -84,17 +84,11 @@ pub fn execute_dataloader_test() -> PyResult<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<
         let all_y = tuple_result.get_item(1)?;
         let all_x_mark = tuple_result.get_item(2)?;
         let all_y_mark = tuple_result.get_item(3)?;
-
-        // 7. Convert to flat vectors
-        let all_x_flat = all_x.call_method0("flatten")?.call_method0("tolist")?;
-        let all_y_flat = all_y.call_method0("flatten")?.call_method0("tolist")?;
-        let all_x_mark_flat = all_x_mark.call_method0("flatten")?.call_method0("tolist")?;
-        let all_y_mark_flat = all_y_mark.call_method0("flatten")?.call_method0("tolist")?;
-
-        let all_x_vec: Vec<f32> = all_x_flat.extract()?;
-        let all_y_vec: Vec<f32> = all_y_flat.extract()?;
-        let all_x_mark_vec: Vec<f32> = all_x_mark_flat.extract()?;
-        let all_y_mark_vec: Vec<f32> = all_y_mark_flat.extract()?;
+        let all_x_vec: Vec<f32> = all_x.extract()?;
+        let all_y_vec: Vec<f32> = all_y.extract()?;
+        let all_x_mark_vec: Vec<f32> = all_x_mark.extract()?;
+        let all_y_mark_vec: Vec<f32> = all_y_mark.extract()?;
+        println!("Received from Python - all_x length: {}, all_y length: {}, all_x_mark length: {}, all_y_mark length: {}", all_x_vec.len(), all_y_vec.len(), all_x_mark_vec.len(), all_y_mark_vec.len());
 
         Ok((all_x_vec, all_y_vec, all_x_mark_vec, all_y_mark_vec))
     })

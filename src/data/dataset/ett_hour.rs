@@ -141,7 +141,7 @@ impl<B: Backend> ETTHourDataset<B> {
                 let slice_len = end_idx - start_idx;
 
                 let data_stamp_array: Array2<f32> = match args.embed {
-                    TimeEmbed::TimeF => {
+                    TimeEmbed::Fixed => {
                         use chrono::{Datelike, Timelike};
                         let dates: Vec<chrono::NaiveDateTime> = df
                             .slice(start_idx as i64, slice_len)
@@ -176,7 +176,7 @@ impl<B: Backend> ETTHourDataset<B> {
                             .into_dimensionality::<ndarray::Ix2>()
                             .unwrap()
                     }
-                    TimeEmbed::Fixed => {
+                    TimeEmbed::TimeF => {
                         let dates: Vec<chrono::NaiveDateTime> = df
                             .slice(start_idx as i64, slice_len)
                             .column("date")
@@ -287,7 +287,7 @@ mod tests {
         let data_config = DataConfig::default();
         let lengths = TimeLengths::default();
         let rust_dataset =
-            ETTHourDataset::<B>::new(&data_config, &lengths, super::ExpFlag::Train, &device);
+            ETTHourDataset::<B>::new(&data_config, &lengths, super::ExpFlag::Test, &device);
 
         let py_tensor_stamp = TensorData::new(py_dataset_result.1, rust_dataset.data_stamp.shape());
 
