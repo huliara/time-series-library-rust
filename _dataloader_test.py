@@ -23,14 +23,14 @@ def dataset_test():
         x_mark.append(batch_x_mark)
         y_mark.append(batch_y_mark)
 
-    all_x = torch.cat(all_x, dim=0)
-    all_y = torch.cat(all_y, dim=0)
-    all_x_mark = torch.cat(all_x_mark, dim=0)
-    all_y_mark = torch.cat(all_y_mark, dim=0)
+    all_x = torch.cat(x, dim=0)
+    all_y = torch.cat(y, dim=0)
+    all_x_mark = torch.cat(x_mark, dim=0)
+    all_y_mark = torch.cat(y_mark, dim=0)
     return all_x, all_y, all_x_mark, all_y_mark
 
 
 if __name__ == "__main__":
-    x, stamp = dataset_test()
+    x, y, x_stamp, y_stamp = dataset_test()
     print("x shape:", x.shape)
-    print("stamp shape:", stamp.shape)
+    print("stamp shape:", x_stamp.shape)
