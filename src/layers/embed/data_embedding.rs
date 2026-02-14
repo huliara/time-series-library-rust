@@ -1,5 +1,5 @@
 use crate::{
-    args::TimeEmbed,
+    args::time_embed::TimeEmbed,
     layers::embed::{
         positional_embedding::{PositionalEmbedding, PositionalEmbeddingConfig},
         temporal_embedding::TemporalEmbedding,

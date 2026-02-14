@@ -1,4 +1,4 @@
-use crate::{args::TimeEmbed, layers::embed::fixed_embedding::FixedEmbedding};
+use crate::{args::time_embed::TimeEmbed, layers::embed::fixed_embedding::FixedEmbedding};
 use burn::{
     module::Module,
     nn::{Embedding, EmbeddingConfig},

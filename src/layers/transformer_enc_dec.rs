@@ -1,5 +1,5 @@
 use crate::activation::Activation;
-use crate::args::ActivationArg;
+use crate::args::activation::ActivationArg;
 use crate::layers::self_attention_family::attention_layer::{AttentionLayer, AttentionLayerConfig};
 use burn::config::Config;
 use burn::module::Module;

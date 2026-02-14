@@ -1,5 +1,5 @@
 use super::util::*;
-use crate::args::{Args, FeatureType, TimeEmbed};
+use crate::args::{feature_type::FeatureType, time_embed::TimeEmbed, Args};
 use burn::{
     data::dataset::Dataset,
     tensor::{backend::Backend, Tensor, TensorData},

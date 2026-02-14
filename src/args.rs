@@ -1,125 +1,35 @@
-use crate::{activation::Activation, models::patch_tst::PatchTSTArgs};
-use burn::nn::{Gelu, Relu};
-use clap::{Parser, Subcommand, ValueEnum};
-use core::fmt;
+pub mod activation;
+pub mod backend;
+pub mod exp;
+pub mod feature_type;
+pub mod model_config;
+pub mod target;
+pub mod time_embed;
+use self::exp::TaskName;
+use crate::args::{
+    activation::ActivationArg, backend::Backend, feature_type::FeatureType,
+    model_config::ModelConfig, target::Target, time_embed::TimeEmbed,
+};
+use clap::Parser;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
-pub enum ActivationArg {
-    Relu,
-    Gelu,
-}
-
-impl ActivationArg {
-    pub fn init(&self) -> Activation {
-        match self {
-            ActivationArg::Relu => Activation::ReLu(Relu),
-            ActivationArg::Gelu => Activation::GeLu(Gelu),
-        }
-    }
-}
-
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
-pub enum TaskName {
-    AnomalyDetection,
-    Classification,
-    Imputation,
-    LongTermForecast,
-    ShortTermForecast,
-    ZeroShotForecast,
-}
-
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
-pub enum Backend {
-    Wgpu,
-}
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
-pub enum FeatureType {
-    Single,
-    Multi,
-}
-
-impl fmt::Display for FeatureType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            FeatureType::Single => "single",
-            FeatureType::Multi => "multi",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
-pub enum Target {
-    HUFL,
-    HULL,
-    MUFL,
-    MULL,
-    LUFL,
-    LULL,
-    OT,
-}
-impl fmt::Display for Target {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Target::HUFL => "HUFL",
-            Target::HULL => "HULL",
-            Target::MUFL => "MUFL",
-            Target::MULL => "MULL",
-            Target::LUFL => "LUFL",
-            Target::LULL => "LULL",
-            Target::OT => "OT",
-        };
-        write!(f, "{}", s)
-    }
-}
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
-pub enum TimeEmbed {
-    TimeF,
-    Fixed,
-}
-impl fmt::Display for TimeEmbed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            TimeEmbed::TimeF => "timeF",
-            TimeEmbed::Fixed => "fixed",
-        };
-        write!(f, "{}", s)
-    }
-}
-
-#[derive(Subcommand, Debug, Clone, Deserialize, Serialize)]
-pub enum ModelConfig {
-    PatchTST(PatchTSTArgs),
-    Transformer,
-    // Other model configs can be added here
-}
-impl fmt::Display for ModelConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            ModelConfig::PatchTST(_) => "PatchTST",
-            ModelConfig::Transformer => "Transformer",
-        };
-        write!(f, "{}", s)
-    }
-}
-
 #[derive(Parser, Debug, Clone, Deserialize, Serialize)]
+#[command(name = "run")]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
-    #[arg(value_enum)]
+    #[arg(long, value_enum)]
     pub task_name: TaskName,
 
     //corresponds to features
-    #[arg(value_enum)]
+    #[arg(long, value_enum)]
     pub feature_type: FeatureType,
 
-    #[arg(value_enum)]
+    #[arg(long, value_enum)]
     pub target: Target,
 
-    #[arg(value_enum)]
+    #[arg(long, value_enum)]
     pub embed: TimeEmbed,
-    #[arg(value_enum)]
+    #[arg(long, value_enum)]
     pub backend: Backend,
 
     #[arg(long)]
@@ -216,8 +126,8 @@ pub struct Args {
     #[arg(long, default_value_t = 0.1)]
     pub dropout: f64,
 
-    #[arg(long, default_value = "gelu")]
-    pub activation: String,
+    #[arg(long)]
+    pub activation: ActivationArg,
 
     #[arg(long, default_value_t = 1)]
     pub channel_independence: i32,

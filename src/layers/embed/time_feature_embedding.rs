@@ -4,7 +4,7 @@ use burn::{
     tensor::{backend::Backend, Tensor},
 };
 
-use crate::args::TimeEmbed;
+use crate::args::time_embed::TimeEmbed;
 
 #[derive(Module, Debug)]
 pub struct TimeFeatureEmbedding<B: Backend> {
