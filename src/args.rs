@@ -14,7 +14,7 @@ use clap::Parser;
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug, Clone, Deserialize, Serialize)]
-#[command(name = "run")]
+#[command(name = "exp")]
 #[command(author, version, about, long_about = None)]
 pub struct Args {
     #[arg(long, value_enum)]
@@ -35,10 +35,12 @@ pub struct Args {
     #[arg(long)]
     pub skip_training: bool,
 
+    #[command(subcommand)]
+    pub model_config: ModelConfig,
+
     #[arg(long, default_value = "test")]
     pub model_id: String,
 
-    // data loader
     #[arg(long, default_value = "ETTh1")]
     pub data: String,
 
@@ -299,7 +301,4 @@ pub struct Args {
 
     #[arg(long, default_value = "./checkpoints/")]
     pub checkpoints: String,
-
-    #[command(subcommand)]
-    pub model_config: ModelConfig,
 }

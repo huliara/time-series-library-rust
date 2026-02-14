@@ -1,4 +1,4 @@
-use crate::args::{exp::TaskName, Args};
+use crate::args::exp::TaskName;
 use crate::layers::decomposition::SeriesDecomp;
 use crate::models::traits::{AnomalyDetection, Classification, Forecast, Imputation};
 use burn::nn::Initializer;
@@ -8,10 +8,20 @@ use burn::{
     nn::{Linear, LinearConfig},
     tensor::{backend::Backend, Tensor},
 };
-
+use clap::Args;
+use serde::{Deserialize, Serialize};
+#[derive(Debug, Clone, Serialize, Deserialize, Args)]
+pub struct DLinearArgs {
+    pub seq_len: usize,
+    pub pred_len: usize,
+    pub enc_in: usize,
+    pub individual: bool,
+    pub moving_avg: usize,
+    pub num_class: usize, // Only used for classification task, ignored otherwise
+}
 #[derive(Config, Debug)]
 pub struct DLinearConfig {
-    pub args: Args,
+    pub args: DLinearArgs,
     #[config(
         default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
     )]
@@ -19,10 +29,10 @@ pub struct DLinearConfig {
 }
 
 impl DLinearConfig {
-    pub fn init<B: Backend>(self, device: &B::Device) -> DLinear<B> {
+    pub fn init<B: Backend>(self, task_name: TaskName, device: &B::Device) -> DLinear<B> {
         let config = &self.args;
         let seq_len = config.seq_len;
-        let pred_len = match config.task_name {
+        let pred_len = match task_name {
             TaskName::LongTermForecast => config.pred_len,
             TaskName::ShortTermForecast => config.pred_len,
             _ => config.seq_len,
@@ -111,7 +121,7 @@ impl DLinearConfig {
             individual_trend_bias = Some(Param::from_tensor(b_t));
         }
 
-        let projection = if config.task_name == TaskName::Classification {
+        let projection = if task_name == TaskName::Classification {
             Some(
                 LinearConfig::new(enc_in * seq_len, config.num_class)
                     .with_initializer(self.initializer.clone())
@@ -272,30 +282,29 @@ impl<B: Backend> Classification<B> for DLinear<B> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{DLinear, DLinearConfig};
+    use crate::args::exp::TaskName;
+    use crate::models::dlinear::DLinearArgs;
     use crate::models::test_util::assert_module_forecast;
     use burn::backend::wgpu::Wgpu;
-    use clap::Parser;
+    use burn::nn::Initializer;
     #[test]
     fn test_dlinear_forecast() {
         type B = Wgpu;
         let device = Default::default();
-        let args = Args::parse_from(vec![
-            "test",
-            "--task-name",
-            "long-term-forecast",
-            "single",
-            "ot",
-            "time-f",
-            "wgpu",
-            "--data-path",
-            "data/ETT/ETTh1.csv",
-            "--skip-training",
-        ]);
+        let task_name = TaskName::LongTermForecast;
+        let args = DLinearArgs {
+            seq_len: 96,
+            pred_len: 96,
+            enc_in: 7,
+            individual: false,
+            moving_avg: 25,
+            num_class: 10,
+        };
         let initializer = Initializer::Constant { value: (0.01) };
         let model = DLinearConfig::new(args)
             .with_initializer(initializer)
-            .init(&device);
+            .init(task_name, &device);
 
         assert_module_forecast::<B, DLinear<B>>(model);
     }
