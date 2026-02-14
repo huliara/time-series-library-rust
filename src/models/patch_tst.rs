@@ -1,5 +1,3 @@
-use core::fmt;
-
 use super::traits::Forecast;
 use crate::args::{activation::ActivationArg, exp::TaskName};
 
@@ -19,23 +17,7 @@ use burn::{
 };
 use serde::{Deserialize, Serialize};
 
-use clap::{Args, ValueEnum};
-
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default)]
-pub enum PatchTSTActivation {
-    #[default]
-    Gelu,
-    Relu,
-}
-impl fmt::Display for PatchTSTActivation {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            PatchTSTActivation::Gelu => "gelu",
-            PatchTSTActivation::Relu => "relu",
-        };
-        write!(f, "{}", s)
-    }
-}
+use clap::Args;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Args)]
 pub struct PatchTSTArgs {
@@ -63,8 +45,8 @@ pub struct PatchTSTArgs {
     pub dropout: f64,
     #[arg(long, default_value_t = 1)]
     pub factor: usize,
-    #[arg(long)]
-    pub activation: PatchTSTActivation,
+    #[arg(long, value_enum)]
+    pub activation: ActivationArg,
 }
 #[derive(Config, Debug)]
 pub struct PatchTSTConfig {
@@ -107,10 +89,7 @@ impl PatchTSTConfig {
             d_model: self.model_args.d_model,
             d_ff: Some(self.model_args.d_ff),
             dropout: self.model_args.dropout,
-            activation: match self.model_args.activation {
-                PatchTSTActivation::Gelu => ActivationArg::Gelu,
-                PatchTSTActivation::Relu => ActivationArg::Relu,
-            },
+            activation: self.model_args.activation.clone(),
             initializer: self.initializer.clone(),
         };
         let encoder = EncoderConfig::new(
@@ -265,29 +244,7 @@ mod tests {
         type B = Wgpu;
         let device = Default::default();
         let root_args = Args::parse_from(vec![
-            "run",
-            "--seq-len",
-            "96",
-            "--pred-len",
-            "96",
-            "--num-class",
-            "10",
-            "--d-model",
-            "16",
-            "--patch-len",
-            "4",
-            "--enc-in",
-            "7",
-            "--e-layers",
-            "2",
-            "--n-heads",
-            "8",
-            "--d-ff",
-            "2048",
-            "--dropout",
-            "0.1",
-            "--task-name",
-            "longtermforecast",
+            "test",
             "--feature-type",
             "single",
             "--target",
@@ -296,13 +253,9 @@ mod tests {
             "time-f",
             "--backend",
             "wgpu",
-            "--activation",
-            "gelu",
             "patch-tst",
             "--activation",
             "gelu",
-            "--stride",
-            "2",
         ]);
         println!("Root Args: {:?}", root_args);
         if let ModelConfig::PatchTST(model_args) = &root_args.model_config {

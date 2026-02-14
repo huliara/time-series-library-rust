@@ -282,6 +282,7 @@ mod tests {
         let device = Default::default();
         let args = Args::parse_from(vec![
             "test",
+            "--task-name",
             "long-term-forecast",
             "single",
             "ot",

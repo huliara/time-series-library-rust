@@ -7,8 +7,8 @@ pub mod target;
 pub mod time_embed;
 use self::exp::TaskName;
 use crate::args::{
-    activation::ActivationArg, backend::Backend, feature_type::FeatureType,
-    model_config::ModelConfig, target::Target, time_embed::TimeEmbed,
+    backend::Backend, feature_type::FeatureType, model_config::ModelConfig, target::Target,
+    time_embed::TimeEmbed,
 };
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -125,9 +125,6 @@ pub struct Args {
 
     #[arg(long, default_value_t = 0.1)]
     pub dropout: f64,
-
-    #[arg(long)]
-    pub activation: ActivationArg,
 
     #[arg(long, default_value_t = 1)]
     pub channel_independence: i32,
