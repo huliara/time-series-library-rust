@@ -2,21 +2,16 @@ use super::triangular_mask::TriangularMask;
 use burn::{
     config::Config,
     module::Module,
-    nn::{Dropout, DropoutConfig, Initializer},
+    nn::{Dropout, DropoutConfig},
     prelude::Bool,
     tensor::{activation::softmax, backend::Backend, Tensor},
 };
 #[derive(Config, Debug)]
 pub struct FullAttentionConfig {
     pub mask_flag: bool,
-    pub factor: usize,
     pub scale: Option<f64>,
     pub attention_dropout: f64,
     pub output_attention: bool,
-    #[config(
-        default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
-    )]
-    pub initializer: Initializer,
 }
 
 impl FullAttentionConfig {
@@ -95,7 +90,7 @@ mod tests {
         type B = NdArray;
         let device = Default::default();
 
-        let attention = FullAttentionConfig::new(true, 1, 0.1, true).init();
+        let attention = FullAttentionConfig::new(true, 0.1, true).init();
 
         let b_size = 2;
         let l = 4;

@@ -21,11 +21,11 @@ pub fn create_data_loader<B: Backend>(
     let device = B::Device::default();
     let dataset: ETTHourDataset<B> = ETTHourDataset::new(data_config, lengths, flag, &device);
     match flag {
-        ExpFlag::Train => DataLoaderBuilder::new(TimeSeriesBatcher::default())
+        ExpFlag::_Train => DataLoaderBuilder::new(TimeSeriesBatcher::default())
             .batch_size(batch_size)
             .shuffle(seed)
             .build(dataset),
-        ExpFlag::Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
+        ExpFlag::_Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
             .batch_size(batch_size)
             .build(dataset),
         ExpFlag::Test => DataLoaderBuilder::new(TimeSeriesBatcher::default())

@@ -28,12 +28,6 @@ impl<B: Backend> MovingAvg<B> {
     pub fn forward(&self, x: Tensor<B, 3>) -> Tensor<B, 3> {
         // x: [batch_size, seq_len, channels]
         let x_len = x.dims()[1];
-        let front_len = (self.kernel_size - 1) / 2;
-        let end_len = (self.kernel_size - 1) / 2 + (self.kernel_size - 1) % 2; // Handle odd/even kernel sizes if necessary, though typical is odd.
-                                                                               // The python code repeats: (kernel_size - 1) // 2
-                                                                               // For Python's implementation:
-                                                                               // front = x[:, 0:1, :].repeat(1, (self.kernel_size - 1) // 2, 1)
-                                                                               // This implies seq_len dim is 1.
 
         let front_size = (self.kernel_size - 1) / 2;
 

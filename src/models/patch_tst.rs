@@ -74,17 +74,14 @@ impl PatchTSTConfig {
             attention_config: AttentionLayerConfig {
                 inner_attention: FullAttentionConfig {
                     mask_flag: false,
-                    factor: self.model_args.factor,
                     scale: None,
                     attention_dropout: self.model_args.dropout,
                     output_attention: false,
-                    initializer: self.initializer.clone(),
                 },
                 d_model: self.model_args.d_model,
                 n_heads: self.model_args.n_heads,
                 d_keys: None,
                 d_values: None,
-                initializer: self.initializer.clone(),
             },
             d_model: self.model_args.d_model,
             d_ff: Some(self.model_args.d_ff),
@@ -99,7 +96,6 @@ impl PatchTSTConfig {
         )
         .with_initializer(self.initializer.clone())
         .init::<B>(device);
-        println!("encoder {}", encoder);
         // Prediction Head
         let head_nf = self.model_args.d_model
             * ((self.model_args.seq_len - self.model_args.patch_len) / self.model_args.stride + 2);
@@ -188,7 +184,7 @@ impl<B: Backend> Forecast<B> for PatchTST<B> {
     fn forecast(
         &self,
         x_enc: Tensor<B, 3>,
-        x_mark_enc: Tensor<B, 3>,
+        _x_mark_enc: Tensor<B, 3>,
         _x_dec: Tensor<B, 3>,
         _x_mark_dec: Tensor<B, 3>,
     ) -> Tensor<B, 3> {
@@ -255,7 +251,7 @@ mod tests {
             e_layers: 2,
             n_heads: 8,
             d_ff: 2048,
-            dropout: 0.1,
+            dropout: 0.0,
             factor: 1,
             activation: ActivationArg::Gelu,
         };

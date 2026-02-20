@@ -3,7 +3,7 @@ use crate::layers::self_attention_family::full_attention::FullAttentionConfig;
 use super::full_attention::FullAttention;
 use burn::config::Config;
 use burn::module::Module;
-use burn::nn::{Initializer, Linear, LinearConfig};
+use burn::nn::{Linear, LinearConfig};
 use burn::prelude::Bool;
 use burn::tensor::{backend::Backend, Tensor};
 
@@ -14,10 +14,6 @@ pub struct AttentionLayerConfig {
     pub n_heads: usize,
     pub d_keys: Option<usize>,
     pub d_values: Option<usize>,
-    #[config(
-        default = "Initializer::KaimingUniform{gain:1.0/num_traits::Float::sqrt(3.0), fan_out_only:false}"
-    )]
-    pub initializer: Initializer,
 }
 
 impl AttentionLayerConfig {
@@ -119,14 +115,9 @@ mod tests {
 
         let inner_config = FullAttentionConfig {
             mask_flag: false,
-            factor: 1,
             scale: None,
             attention_dropout: 0.1,
             output_attention: true,
-            initializer: Initializer::KaimingUniform {
-                gain: 1.0 / 3.0f64.sqrt(),
-                fan_out_only: false,
-            },
         };
 
         let config = AttentionLayerConfig {
@@ -135,10 +126,6 @@ mod tests {
             n_heads: 4,
             d_keys: None,
             d_values: None,
-            initializer: Initializer::KaimingUniform {
-                gain: 1.0 / 3.0f64.sqrt(),
-                fan_out_only: false,
-            },
         };
         let attention_layer = config.init::<B>(&device);
 

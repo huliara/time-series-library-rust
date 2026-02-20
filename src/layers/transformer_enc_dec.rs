@@ -39,11 +39,7 @@ impl EncoderLayerConfig {
         let norm2 = LayerNormConfig::new(self.d_model).init(device);
         let dropout = DropoutConfig::new(self.dropout).init();
         let activation = self.activation.init();
-        let attention = self
-            .attention_config
-            .clone()
-            .with_initializer(self.initializer.clone())
-            .init(device);
+        let attention = self.attention_config.clone().init(device);
 
         EncoderLayer {
             attention,

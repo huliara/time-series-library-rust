@@ -86,9 +86,11 @@ fn time_features_from_frequency_str(freq_str: &str) -> Vec<FeatureFn> {
                     day_of_month,
                     day_of_year,
                 ]
-            } else if freq.ends_with('d') || freq.ends_with('D') {
-                vec![day_of_week, day_of_month, day_of_year]
-            } else if freq.ends_with('b') || freq.ends_with('B') {
+            } else if freq.ends_with('d')
+                || freq.ends_with('D')
+                || freq.ends_with('b')
+                || freq.ends_with('B')
+            {
                 vec![day_of_week, day_of_month, day_of_year]
             } else if freq.ends_with('w') || freq.ends_with('W') {
                 vec![day_of_month, week_of_year]

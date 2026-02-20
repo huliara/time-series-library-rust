@@ -30,17 +30,8 @@ impl PatchEmbeddingConfig {
         let linear = LinearConfig::new(self.patch_len, self.d_model)
             .with_initializer(self.initializer.clone())
             .init(device);
-        println!(
-            "Initialized Linear layer with input dim and output dim {}",
-            linear,
-        );
-
         let positional_embedding =
             PositionalEmbeddingConfig::new(self.d_model, self.max_len).init(device);
-        println!(
-            "Initialized Positional Embedding with d_model {}",
-            self.d_model
-        );
         let dropout = DropoutConfig::new(self.dropout).init();
         PatchEmbedding {
             padding_layer,
