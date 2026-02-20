@@ -43,8 +43,6 @@ pub struct PatchTSTArgs {
     pub d_ff: usize,
     #[arg(long, default_value_t = 0.1)]
     pub dropout: f64,
-    #[arg(long, default_value_t = 1)]
-    pub factor: usize,
     #[arg(long, value_enum)]
     pub activation: ActivationArg,
 }
@@ -252,7 +250,6 @@ mod tests {
             n_heads: 8,
             d_ff: 2048,
             dropout: 0.0,
-            factor: 1,
             activation: ActivationArg::Gelu,
         };
 
