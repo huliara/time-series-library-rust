@@ -1,10 +1,12 @@
+mod forecast_output;
 use crate::{
-    args::{exp::TaskName, model_config::ModelConfig, RootArgs},
+    args::{RootArgs, exp::TaskName, model_config::ModelConfig},
     data::{
         batcher::{TimeSeriesBatch, TimeSeriesBatcher},
         data_loader::create_data_loader,
-        dataset::ett_hour::ETTHourDataset,
+        dataset::ett_hour::{ETTHourDataset, ExpFlag},
     },
+    exp::long_term_forecast::forecast_output::ForecastOutput,
     models::{
         dlinear::{DLinear, DLinearConfig},
         patch_tst::{PatchTST, PatchTSTConfig},
@@ -13,7 +15,6 @@ use crate::{
 };
 use burn::{
     data::dataloader::DataLoaderBuilder,
-    module::AutodiffModule,
     nn::loss::MseLoss,
     optim::AdamConfig,
     prelude::*,
@@ -21,15 +22,14 @@ use burn::{
     tensor::backend::AutodiffBackend,
     train::{
         metric::{AccuracyMetric, LossMetric},
-        ClassificationOutput, InferenceStep, Learner, RegressionOutput, SupervisedTraining,
-        TrainOutput, TrainStep,
+        InferenceStep, Learner, SupervisedTraining, TrainOutput, TrainStep,
     },
 };
 
 impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
     type Input = TimeSeriesBatch<B>;
-    type Output = RegressionOutput<B>;
-    fn step(&self, batch: TimeSeriesBatch<B>) -> RegressionOutput<B> {
+    type Output = ForecastOutput<B>;
+    fn step(&self, batch: TimeSeriesBatch<B>) -> TrainOutput<ForecastOutput<B>> {
         let TimeSeriesBatch {
             x,
             x_mark,
@@ -37,19 +37,19 @@ impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
             y_mark,
         } = batch;
         let mut dec_input = Tensor::zeros_like(&y);
-        dec_input = Tensor::cat(vec![y, dec_input], 1);
+        dec_input = Tensor::cat(vec![y.clone(), dec_input], 1);
         let output = self.forecast(x, x_mark, dec_input, y_mark);
-        let loss = MseLoss::new().forward(output.clone(), y, nn::loss::Reduction::Mean);
-
-        RegressionOutput::new(loss, output, targets)
+        let loss = MseLoss::new().forward(output.clone(), y.clone(), nn::loss::Reduction::Mean);
+        let item = ForecastOutput::new(loss.clone(), output, y);
+        TrainOutput::new(self, loss.backward(), item)
     }
 }
 
-impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
+impl<B: Backend> InferenceStep for PatchTST<B> {
     type Input = TimeSeriesBatch<B>;
-    type Output = ClassificationOutput<B>;
+    type Output = ForecastOutput<B>;
 
-    fn step(&self, batch: TimeSeriesBatch<B>) -> TrainOutput<ClassificationOutput<B>> {
+    fn step(&self, batch: TimeSeriesBatch<B>) -> ForecastOutput<B> {
         let TimeSeriesBatch {
             x,
             x_mark,
@@ -57,20 +57,10 @@ impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
             y_mark,
         } = batch;
         let mut dec_input = Tensor::zeros_like(&y);
-        dec_input = Tensor::cat(vec![y, dec_input], 1);
+        dec_input = Tensor::cat(vec![y.clone(), dec_input], 1);
         let output = self.forecast(x, x_mark, dec_input, y_mark);
-        let loss = MseLoss::new().forward(output.clone(), y, nn::loss::Reduction::Mean);
-
-        TrainOutput::new(self, item.loss.backward(), item)
-    }
-}
-
-impl<B: Backend> InferenceStep for Model<B> {
-    type Input = MnistBatch<B>;
-    type Output = ClassificationOutput<B>;
-
-    fn step(&self, batch: MnistBatch<B>) -> ClassificationOutput<B> {
-        self.forward_classification(batch.images, batch.targets)
+        let loss = MseLoss::new().forward(output.clone(), y.clone(), nn::loss::Reduction::Mean);
+        ForecastOutput::new(loss.clone(), output, y)
     }
 }
 
@@ -104,19 +94,24 @@ pub fn train<B: AutodiffBackend>(artifact_dir: &str, config: TrainingConfig, dev
 
     B::seed(&device, config.seed);
 
-    let batcher = MnistBatcher::default();
+    let batcher = TimeSeriesBatcher::default();
 
     let dataloader_train = DataLoaderBuilder::new(batcher.clone())
         .batch_size(config.batch_size)
         .shuffle(config.seed)
         .num_workers(config.num_workers)
-        .build(MnistDataset::train());
+        .build(ETTHourDataset::new(
+            &RootArgs::default().data_config,
+            &RootArgs::default().lengths,
+            ExpFlag::_Train,
+            &device,
+        ));
 
     let dataloader_test = DataLoaderBuilder::new(batcher)
         .batch_size(config.batch_size)
         .shuffle(config.seed)
         .num_workers(config.num_workers)
-        .build(MnistDataset::test());
+        .build(MnistDataset::);
 
     let training = SupervisedTraining::new(artifact_dir, dataloader_train, dataloader_test)
         .metrics((AccuracyMetric::new(), LossMetric::new()))
