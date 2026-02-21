@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 pub enum ModelConfig {
     PatchTST(PatchTSTArgs),
     DLinear(DLinearArgs),
-    Transformer,
     // Other model configs can be added here
 }
 impl fmt::Display for ModelConfig {
@@ -14,7 +13,6 @@ impl fmt::Display for ModelConfig {
         let s = match self {
             ModelConfig::PatchTST(_) => "PatchTST",
             ModelConfig::DLinear(_) => "DLinear",
-            ModelConfig::Transformer => "Transformer",
         };
         write!(f, "{}", s)
     }

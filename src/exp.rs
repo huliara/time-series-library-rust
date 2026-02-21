@@ -1,6 +1,7 @@
+mod long_term_forecast;
 use crate::args::RootArgs as Args;
 
-pub fn _get_exp_name(args: &Args) -> String {
+pub fn get_exp_name(args: &Args) -> String {
     format!(
         "{:?}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}",
         args.task_name,

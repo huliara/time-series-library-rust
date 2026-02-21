@@ -249,7 +249,7 @@ mod tests {
             e_layers: 2,
             n_heads: 8,
             d_ff: 2048,
-            dropout: 0.0,
+            dropout: 0.1,
             activation: ActivationArg::Gelu,
         };
 
@@ -258,6 +258,7 @@ mod tests {
         let model = PatchTSTConfig::new(patch_tst_args)
             .with_initializer(initializer)
             .init(task_name, &device);
+
         assert_module_forecast::<B, PatchTST<B>>(model);
     }
 }
