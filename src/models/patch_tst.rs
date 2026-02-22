@@ -98,32 +98,27 @@ impl PatchTSTConfig {
         let head_nf = self.model_args.d_model
             * ((self.model_args.seq_len - self.model_args.patch_len) / self.model_args.stride + 2);
 
-        let head = if task_name == TaskName::LongTermForecast
-            || task_name == TaskName::ShortTermForecast
-        {
-            Some(
+        let head = match task_name {
+            TaskName::LongTermForecast | TaskName::ShortTermForecast => Some(
                 FlattenHeadConfig::new(head_nf, self.model_args.pred_len, self.model_args.dropout)
                     .with_initializer(self.initializer.clone())
                     .init(device),
-            )
-        } else if task_name == TaskName::Imputation || task_name == TaskName::AnomalyDetection {
-            Some(
+            ),
+            TaskName::Imputation | TaskName::AnomalyDetection => Some(
                 FlattenHeadConfig::new(head_nf, self.model_args.seq_len, self.model_args.dropout)
                     .with_initializer(self.initializer.clone())
                     .init(device),
-            )
-        } else {
-            None
+            ),
+            _ => None,
         };
 
-        let classification_projection = if task_name == TaskName::Classification {
-            Some(
+        let classification_projection = match task_name {
+            TaskName::Classification => Some(
                 LinearConfig::new(head_nf * self.model_args.enc_in, self.model_args.num_class)
                     .with_initializer(self.initializer.clone())
                     .init(device),
-            )
-        } else {
-            None
+            ),
+            _ => None,
         };
 
         PatchTST {

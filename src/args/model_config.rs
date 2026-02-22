@@ -1,4 +1,11 @@
-use crate::models::{dlinear::DLinearArgs, patch_tst::PatchTSTArgs};
+use crate::{
+    args::exp::TaskName,
+    models::{
+        dlinear::{DLinearArgs, DLinearConfig},
+        patch_tst::{PatchTSTArgs, PatchTSTConfig},
+        traits::Forecast,
+    },
+};
 use clap::Subcommand;
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -15,5 +22,22 @@ impl fmt::Display for ModelConfig {
             ModelConfig::DLinear(_) => "DLinear",
         };
         write!(f, "{}", s)
+    }
+}
+
+impl ModelConfig {
+    pub fn init<B: burn::tensor::backend::Backend>(
+        &self,
+        task_name: TaskName,
+        device: &B::Device,
+    ) -> Box<dyn Forecast<B>> {
+        match self {
+            ModelConfig::PatchTST(args) => {
+                Box::new(PatchTSTConfig::new(args.clone()).init(task_name, device))
+            }
+            ModelConfig::DLinear(args) => {
+                Box::new(DLinearConfig::new(args.clone()).init(task_name, device))
+            }
+        }
     }
 }

@@ -1,6 +1,12 @@
 mod forecast_output;
 use crate::{
-    args::{RootArgs, exp::TaskName, model_config::ModelConfig},
+    args::{
+        data_config::{self, DataConfig},
+        exp::TaskName,
+        model_config::{self, ModelConfig},
+        time_lengths::TimeLengths,
+        RootArgs,
+    },
     data::{
         batcher::{TimeSeriesBatch, TimeSeriesBatcher},
         data_loader::create_data_loader,
@@ -15,6 +21,7 @@ use crate::{
 };
 use burn::{
     data::dataloader::DataLoaderBuilder,
+    module::AutodiffModule,
     nn::loss::MseLoss,
     optim::AdamConfig,
     prelude::*,
@@ -25,6 +32,8 @@ use burn::{
         InferenceStep, Learner, SupervisedTraining, TrainOutput, TrainStep,
     },
 };
+use clap::Args;
+use serde::{Deserialize, Serialize};
 
 impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
     type Input = TimeSeriesBatch<B>;
@@ -64,19 +73,17 @@ impl<B: Backend> InferenceStep for PatchTST<B> {
     }
 }
 
-#[derive(Config, Debug)]
-pub struct TrainingConfig {
-    pub model: ModelConfig,
-    pub optimizer: AdamConfig,
-    #[config(default = 10)]
+#[derive(Debug, Args, Clone, Deserialize, Serialize)]
+pub struct TrainConfig {
+    #[arg(long, default_value_t = 10)]
     pub num_epochs: usize,
-    #[config(default = 64)]
+    #[arg(long, default_value_t = 64)]
     pub batch_size: usize,
-    #[config(default = 4)]
+    #[arg(long, default_value_t = 4)]
     pub num_workers: usize,
-    #[config(default = 42)]
+    #[arg(long, default_value_t = 42)]
     pub seed: u64,
-    #[config(default = 1.0e-4)]
+    #[arg(long, default_value_t = 1.0e-4)]
     pub learning_rate: f64,
 }
 
@@ -86,45 +93,59 @@ fn create_artifact_dir(artifact_dir: &str) {
     std::fs::create_dir_all(artifact_dir).ok();
 }
 
-pub fn train<B: AutodiffBackend>(artifact_dir: &str, config: TrainingConfig, device: B::Device) {
+pub fn train<B, M>(
+    artifact_dir: &str,
+    train_config: TrainConfig,
+    model: M,
+    data_config: DataConfig,
+    lengths: TimeLengths,
+    device: B::Device,
+) where
+    B: AutodiffBackend,
+    M: AutodiffModule<B>
+        + TrainStep<Input = TimeSeriesBatch<B>>
+        + InferenceStep
+        + std::fmt::Display,
+    <M as burn::module::AutodiffModule<B>>::InnerModule: burn::train::InferenceStep,
+{
     create_artifact_dir(artifact_dir);
-    config
+    train_config
         .save(format!("{artifact_dir}/config.json"))
         .expect("Config should be saved successfully");
 
-    B::seed(&device, config.seed);
+    B::seed(&device, train_config.seed);
 
     let batcher = TimeSeriesBatcher::default();
 
     let dataloader_train = DataLoaderBuilder::new(batcher.clone())
-        .batch_size(config.batch_size)
-        .shuffle(config.seed)
-        .num_workers(config.num_workers)
+        .batch_size(train_config.batch_size)
+        .shuffle(train_config.seed)
+        .num_workers(train_config.num_workers)
         .build(ETTHourDataset::new(
-            &RootArgs::default().data_config,
-            &RootArgs::default().lengths,
-            ExpFlag::_Train,
+            &data_config,
+            &lengths,
+            ExpFlag::Train,
             &device,
         ));
 
     let dataloader_test = DataLoaderBuilder::new(batcher)
-        .batch_size(config.batch_size)
-        .shuffle(config.seed)
-        .num_workers(config.num_workers)
-        .build(MnistDataset::);
+        .batch_size(train_config.batch_size)
+        .shuffle(train_config.seed)
+        .num_workers(train_config.num_workers)
+        .build(ETTHourDataset::new(
+            &data_config,
+            &lengths,
+            ExpFlag::Train,
+            &device,
+        ));
 
     let training = SupervisedTraining::new(artifact_dir, dataloader_train, dataloader_test)
         .metrics((AccuracyMetric::new(), LossMetric::new()))
         .with_file_checkpointer(CompactRecorder::new())
-        .num_epochs(config.num_epochs)
+        .num_epochs(train_config.num_epochs)
         .summary();
-
-    let model = config.model.init::<B>(&device);
-    let result = training.launch(Learner::new(
-        model,
-        config.optimizer.init(),
-        config.learning_rate,
-    ));
+    let optimizer = AdamConfig::new().init();
+    let result = training.launch(Learner::new(model, optimizer, train_config.learning_rate));
 
     result
         .model

@@ -1,6 +1,7 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize)]
+
+#[derive(ValueEnum, Debug, Clone, Deserialize, Serialize)]
 pub enum TaskName {
     AnomalyDetection,
     Classification,

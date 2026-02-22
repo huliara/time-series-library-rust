@@ -121,14 +121,13 @@ impl DLinearConfig {
             individual_trend_bias = Some(Param::from_tensor(b_t));
         }
 
-        let projection = if task_name == TaskName::Classification {
-            Some(
+        let projection = match task_name {
+            TaskName::Classification => Some(
                 LinearConfig::new(enc_in * seq_len, config.num_class)
                     .with_initializer(self.initializer.clone())
                     .init(device),
-            )
-        } else {
-            None
+            ),
+            _ => None,
         };
 
         DLinear {

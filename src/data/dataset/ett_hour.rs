@@ -61,7 +61,7 @@ pub struct ETTHourDataset<B: Backend> {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ExpFlag {
-    _Train,
+    Train,
     _Val,
     Test,
 }
@@ -96,7 +96,7 @@ impl<B: Backend> ETTHourDataset<B> {
                 );
 
                 let (start_idx, end_idx) = match flag {
-                    ExpFlag::_Train => (border1s.0, border2s.0),
+                    ExpFlag::Train => (border1s.0, border2s.0),
                     ExpFlag::_Val => (border1s.1, border2s.1),
                     ExpFlag::Test => (border1s.2, border2s.2),
                 };
