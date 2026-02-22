@@ -5,20 +5,31 @@ mod exp;
 mod layers;
 mod models;
 mod test_py;
+
 use args::exp::TaskName;
-use args::RootArgs;
+use args::{backend::Backend as ArgBackend, RootArgs};
+use burn::backend::{Autodiff, Wgpu};
 use clap::Parser;
 
 fn main() {
-    let args: RootArgs = RootArgs::parse();
+    let args = RootArgs::parse();
     println!("Args: {:?}", args);
 
     match args.task_name {
-        TaskName::AnomalyDetection => todo!(),
-        TaskName::Classification => todo!(), // run_exp(ExpClassification { args }),
-        TaskName::Imputation => todo!(),     // run_exp(ExpImputation { args }),
-        TaskName::LongTermForecast => run_exp(ExpLongTermForecast { args }),
-        TaskName::ShortTermForecast => todo!(), // run_exp(ExpShortTermForecast { args }),
-        TaskName::ZeroShotForecast => todo!(),  // run_exp(ExpZeroShotForecast { args }),
+        TaskName::LongTermForecast => {
+            if args.backend == ArgBackend::Wgpu {
+                type Backend = Autodiff<Wgpu>;
+                let device = burn::backend::wgpu::WgpuDevice::default();
+                exp::long_term_forecast::train::<Backend>(
+                    &args.result_path,
+                    args.train_config.clone(),
+                    args.model_config.clone(),
+                    args.data_config.clone(),
+                    args.time_lengths.clone(),
+                    device,
+                );
+            }
+        }
+        _ => todo!(),
     };
 }

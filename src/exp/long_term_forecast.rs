@@ -1,15 +1,11 @@
 mod forecast_output;
 use crate::{
     args::{
-        data_config::{self, DataConfig},
-        exp::TaskName,
-        model_config::{self, ModelConfig},
+        data_config::DataConfig, exp::TaskName, model_config::ModelConfig,
         time_lengths::TimeLengths,
-        RootArgs,
     },
     data::{
         batcher::{TimeSeriesBatch, TimeSeriesBatcher},
-        data_loader::create_data_loader,
         dataset::ett_hour::{ETTHourDataset, ExpFlag},
     },
     exp::long_term_forecast::forecast_output::ForecastOutput,
@@ -21,21 +17,17 @@ use crate::{
 };
 use burn::{
     data::dataloader::DataLoaderBuilder,
-    module::AutodiffModule,
     nn::loss::MseLoss,
     optim::AdamConfig,
     prelude::*,
     record::CompactRecorder,
     tensor::backend::AutodiffBackend,
-    train::{
-        metric::{AccuracyMetric, LossMetric},
-        InferenceStep, Learner, LearningComponentsTypes, SupervisedTraining, TrainOutput,
-        TrainStep, TrainingModel,
-    },
+    train::{InferenceStep, Learner, SupervisedTraining, TrainOutput, TrainStep},
 };
 use clap::Args;
 use serde::{Deserialize, Serialize};
 
+#[derive(Module, Debug)]
 struct ForecastModel<B: Backend> {
     model: Model<B>,
 }
