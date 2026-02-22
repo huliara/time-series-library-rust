@@ -29,13 +29,53 @@ use burn::{
     tensor::backend::AutodiffBackend,
     train::{
         metric::{AccuracyMetric, LossMetric},
-        InferenceStep, Learner, SupervisedTraining, TrainOutput, TrainStep,
+        InferenceStep, Learner, LearningComponentsTypes, SupervisedTraining, TrainOutput,
+        TrainStep, TrainingModel,
     },
 };
 use clap::Args;
 use serde::{Deserialize, Serialize};
 
-impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
+struct ForecastModel<B: Backend> {
+    model: Model<B>,
+}
+
+impl<B: Backend> ForecastModel<B> {
+    pub fn new(model_config: ModelConfig, device: &B::Device) -> Self {
+        let model = match model_config {
+            ModelConfig::PatchTST(args) => {
+                Model::PatchTST(PatchTSTConfig::new(args).init(TaskName::LongTermForecast, device))
+            }
+            ModelConfig::DLinear(args) => {
+                Model::DLinear(DLinearConfig::new(args).init(TaskName::LongTermForecast, device))
+            }
+        };
+        ForecastModel { model }
+    }
+}
+
+#[derive(Module, Debug)]
+enum Model<B: Backend> {
+    PatchTST(PatchTST<B>),
+    DLinear(DLinear<B>),
+}
+
+impl<B: Backend> Forecast<B> for ForecastModel<B> {
+    fn forecast(
+        &self,
+        x: Tensor<B, 3>,
+        x_mark: Tensor<B, 3>,
+        dec_input: Tensor<B, 3>,
+        y_mark: Tensor<B, 3>,
+    ) -> Tensor<B, 3> {
+        match &self.model {
+            Model::PatchTST(model) => model.forecast(x, x_mark, dec_input, y_mark),
+            Model::DLinear(model) => model.forecast(x, x_mark, dec_input, y_mark),
+        }
+    }
+}
+
+impl<B: AutodiffBackend> TrainStep for ForecastModel<B> {
     type Input = TimeSeriesBatch<B>;
     type Output = ForecastOutput<B>;
     fn step(&self, batch: TimeSeriesBatch<B>) -> TrainOutput<ForecastOutput<B>> {
@@ -50,11 +90,11 @@ impl<B: AutodiffBackend> TrainStep for PatchTST<B> {
         let output = self.forecast(x, x_mark, dec_input, y_mark);
         let loss = MseLoss::new().forward(output.clone(), y.clone(), nn::loss::Reduction::Mean);
         let item = ForecastOutput::new(loss.clone(), output, y);
-        TrainOutput::new(self, loss.backward(), item)
+        TrainOutput::new(&self.model, loss.backward(), item)
     }
 }
 
-impl<B: Backend> InferenceStep for PatchTST<B> {
+impl<B: Backend> InferenceStep for ForecastModel<B> {
     type Input = TimeSeriesBatch<B>;
     type Output = ForecastOutput<B>;
 
@@ -93,25 +133,17 @@ fn create_artifact_dir(artifact_dir: &str) {
     std::fs::create_dir_all(artifact_dir).ok();
 }
 
-pub fn train<B, M>(
+pub fn train<B>(
     artifact_dir: &str,
     train_config: TrainConfig,
-    model: M,
+    model_config: ModelConfig,
     data_config: DataConfig,
     lengths: TimeLengths,
     device: B::Device,
 ) where
     B: AutodiffBackend,
-    M: AutodiffModule<B>
-        + TrainStep<Input = TimeSeriesBatch<B>>
-        + InferenceStep
-        + std::fmt::Display,
-    <M as burn::module::AutodiffModule<B>>::InnerModule: burn::train::InferenceStep,
 {
     create_artifact_dir(artifact_dir);
-    train_config
-        .save(format!("{artifact_dir}/config.json"))
-        .expect("Config should be saved successfully");
 
     B::seed(&device, train_config.seed);
 
@@ -140,11 +172,11 @@ pub fn train<B, M>(
         ));
 
     let training = SupervisedTraining::new(artifact_dir, dataloader_train, dataloader_test)
-        .metrics((AccuracyMetric::new(), LossMetric::new()))
         .with_file_checkpointer(CompactRecorder::new())
         .num_epochs(train_config.num_epochs)
         .summary();
     let optimizer = AdamConfig::new().init();
+    let model = ForecastModel::<B>::new(model_config, &device);
     let result = training.launch(Learner::new(model, optimizer, train_config.learning_rate));
 
     result
