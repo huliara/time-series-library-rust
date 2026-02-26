@@ -1,4 +1,7 @@
-use crate::args::{feature_type::FeatureType, target::Target, time_embed::TimeEmbed};
+use crate::{
+    args::{feature_type::FeatureType, target::Target, time_embed::TimeEmbed},
+    env_path::get_dataset_path,
+};
 use clap::{Args, ValueEnum};
 use core::fmt;
 use serde::{Deserialize, Serialize};
@@ -26,7 +29,7 @@ impl Default for DataConfig {
             feature_type: FeatureType::Single,
             target: Target::OT,
             embed: TimeEmbed::TimeF,
-            data_path: "data/ETT/ETTh1.csv".to_string(),
+            data_path: get_dataset_path(Data::ETTh1),
         }
     }
 }
@@ -36,17 +39,7 @@ impl fmt::Display for DataConfig {
         write!(f, "{}_{}", self.data, self.target)
     }
 }
-#[derive(Debug, Clone, ValueEnum, Deserialize, Serialize)]
-
+#[derive(Debug, Clone, ValueEnum, Deserialize, Serialize, strum::Display)]
 pub enum Data {
     ETTh1,
-}
-
-impl fmt::Display for Data {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            Data::ETTh1 => "ETTh1",
-        };
-        write!(f, "{}", s)
-    }
 }

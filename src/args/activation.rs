@@ -1,14 +1,16 @@
-use std::fmt;
-
 use crate::activation::Activation;
 use burn::nn::{Gelu, Relu};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[derive(
+    Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default, strum::Display,
+)]
 pub enum ActivationArg {
     #[default]
+    #[strum(serialize = "relu")]
     Relu,
+    #[strum(serialize = "gelu")]
     Gelu,
 }
 
@@ -18,15 +20,5 @@ impl ActivationArg {
             ActivationArg::Relu => Activation::ReLu(Relu),
             ActivationArg::Gelu => Activation::GeLu(Gelu),
         }
-    }
-}
-
-impl fmt::Display for ActivationArg {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            ActivationArg::Relu => "relu",
-            ActivationArg::Gelu => "gelu",
-        };
-        write!(f, "{}", s)
     }
 }

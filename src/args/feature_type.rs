@@ -1,19 +1,13 @@
 use clap::ValueEnum;
-use core::fmt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[derive(
+    Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default, strum::Display,
+)]
 pub enum FeatureType {
     #[default]
+    #[strum(serialize = "single")]
     Single,
+    #[strum(serialize = "multi")]
     Multi,
-}
-impl fmt::Display for FeatureType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            FeatureType::Single => "single",
-            FeatureType::Multi => "multi",
-        };
-        write!(f, "{}", s)
-    }
 }

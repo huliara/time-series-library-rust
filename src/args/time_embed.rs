@@ -1,19 +1,13 @@
 use clap::ValueEnum;
-use core::fmt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[derive(
+    Debug, Clone, ValueEnum, PartialEq, Eq, Deserialize, Serialize, Default, strum::Display,
+)]
 pub enum TimeEmbed {
     #[default]
+    #[strum(serialize = "timeF")]
     TimeF,
+    #[strum(serialize = "fixed")]
     Fixed,
-}
-impl fmt::Display for TimeEmbed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            TimeEmbed::TimeF => "timeF",
-            TimeEmbed::Fixed => "fixed",
-        };
-        write!(f, "{}", s)
-    }
 }

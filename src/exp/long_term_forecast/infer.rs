@@ -230,6 +230,8 @@ mod tests {
     use burn::tensor::Distribution;
     use burn_ndarray::NdArray;
 
+    use crate::env_path::get_result_root_path;
+
     use super::*;
 
     #[test]
@@ -237,7 +239,7 @@ mod tests {
         type B = NdArray;
 
         // Create a persistent directory for output
-        let exp_root_path = "test_output";
+        let exp_root_path = &get_result_root_path();
         fs::create_dir_all(exp_root_path).unwrap();
 
         // Create dummy data
