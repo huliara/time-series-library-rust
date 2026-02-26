@@ -2,6 +2,7 @@ use crate::{
     args::{data_config::DataConfig, model_config::ModelConfig, time_lengths::TimeLengths},
     data::{
         batcher::TimeSeriesBatcher,
+        data_loader::create_data_loader,
         dataset::ett_hour::{ETTHourDataset, ExpFlag},
     },
     exp::{
@@ -27,23 +28,20 @@ impl<B: AutodiffBackend> Infer<B> for ForecastModel<B> {
         data_config: DataConfig,
         device: B::Device,
     ) {
-        let batcher = TimeSeriesBatcher::default();
         let record = CompactRecorder::new()
             .load(format!("{exp_root_path}/model").into(), &device)
             .expect("Trained model should exist; run train first");
 
         let model: ForecastModel<B> =
-            ForecastModel::<B>::new(model_config, &device).load_record(record);
-        let dataloader_test = DataLoaderBuilder::new(batcher)
-            .batch_size(exp_config.batch_size)
-            .shuffle(exp_config.seed)
-            .num_workers(exp_config.num_workers)
-            .build(ETTHourDataset::new(
-                &data_config,
-                &lengths,
-                ExpFlag::Test,
-                &device,
-            ));
+            ForecastModel::<B>::new(model_config, lengths.clone(), &device).load_record(record);
+        let dataloader_test = create_data_loader(
+            &data_config,
+            &lengths,
+            exp_config.batch_size,
+            exp_config.num_workers,
+            exp_config.seed,
+            ExpFlag::Test,
+        );
         let mut _predicts = Vec::with_capacity(3);
         let mut _futures = Vec::with_capacity(3);
         for batch in dataloader_test.iter() {

@@ -1,4 +1,5 @@
 use crate::args::exp::TaskName;
+use crate::args::time_lengths::TimeLengths;
 use crate::layers::decomposition::SeriesDecomp;
 use crate::models::traits::{AnomalyDetection, Classification, Forecast, Imputation};
 use burn::nn::Initializer;
@@ -12,8 +13,6 @@ use clap::Args;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Args)]
 pub struct DLinearArgs {
-    pub seq_len: usize,
-    pub pred_len: usize,
     pub enc_in: usize,
     pub individual: bool,
     pub moving_avg: usize,
@@ -29,13 +28,18 @@ pub struct DLinearConfig {
 }
 
 impl DLinearConfig {
-    pub fn init<B: Backend>(self, task_name: TaskName, device: &B::Device) -> DLinear<B> {
+    pub fn init<B: Backend>(
+        self,
+        task_name: TaskName,
+        lengths: TimeLengths,
+        device: &B::Device,
+    ) -> DLinear<B> {
         let config = &self.args;
-        let seq_len = config.seq_len;
+        let seq_len = lengths.seq_len;
         let pred_len = match task_name {
-            TaskName::LongTermForecast => config.pred_len,
-            TaskName::ShortTermForecast => config.pred_len,
-            _ => config.seq_len,
+            TaskName::LongTermForecast => lengths.pred_len,
+            TaskName::ShortTermForecast => lengths.pred_len,
+            _ => lengths.seq_len,
         };
 
         let decomposition: SeriesDecomp<B> = SeriesDecomp::new(config.moving_avg);
@@ -283,6 +287,7 @@ impl<B: Backend> Classification<B> for DLinear<B> {
 mod tests {
     use super::{DLinear, DLinearConfig};
     use crate::args::exp::TaskName;
+    use crate::args::time_lengths::TimeLengths;
     use crate::models::dlinear::DLinearArgs;
     use crate::models::test_util::assert_module_forecast;
     use burn::backend::wgpu::Wgpu;
@@ -293,17 +298,20 @@ mod tests {
         let device = Default::default();
         let task_name = TaskName::LongTermForecast;
         let args = DLinearArgs {
-            seq_len: 96,
-            pred_len: 96,
             enc_in: 7,
             individual: false,
             moving_avg: 25,
             num_class: 10,
         };
+        let lengths = TimeLengths {
+            seq_len: 96,
+            pred_len: 96,
+            label_len: 48,
+        };
         let initializer = Initializer::Constant { value: (0.01) };
         let model = DLinearConfig::new(args)
             .with_initializer(initializer)
-            .init(task_name, &device);
+            .init(task_name, lengths, &device);
 
         assert_module_forecast::<B, DLinear<B>>(model);
     }

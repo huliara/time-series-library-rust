@@ -21,7 +21,11 @@ fn main() {
     match args.task_name {
         TaskName::LongTermForecast => {
             if args.backend == ArgBackend::Wgpu {
-                let model = ForecastModel::<Backend>::new(args.model_config.clone(), &device);
+                let model = ForecastModel::<Backend>::new(
+                    args.model_config.clone(),
+                    args.time_lengths.clone(),
+                    &device,
+                );
                 model.run(args, device);
             }
         }

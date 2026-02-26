@@ -1,4 +1,5 @@
 use super::traits::Forecast;
+use crate::args::time_lengths::TimeLengths;
 use crate::args::{activation::ActivationArg, exp::TaskName};
 
 use crate::layers::{
@@ -21,10 +22,6 @@ use clap::Args;
 
 #[derive(Debug, Clone, Deserialize, Serialize, Args)]
 pub struct PatchTSTArgs {
-    #[arg(long, default_value_t = 96)]
-    pub seq_len: usize,
-    #[arg(long, default_value_t = 96)]
-    pub pred_len: usize,
     #[arg(long, default_value_t = 10)]
     pub num_class: usize,
     #[arg(long, default_value_t = 512)]
@@ -56,7 +53,12 @@ pub struct PatchTSTConfig {
 }
 
 impl PatchTSTConfig {
-    pub fn init<B: Backend>(&self, task_name: TaskName, device: &B::Device) -> PatchTST<B> {
+    pub fn init<B: Backend>(
+        &self,
+        task_name: TaskName,
+        lengths: TimeLengths,
+        device: &B::Device,
+    ) -> PatchTST<B> {
         let padding = self.model_args.stride;
         let patch_embedding = PatchEmbeddingConfig::new(
             self.model_args.d_model,
@@ -96,16 +98,16 @@ impl PatchTSTConfig {
         .init::<B>(device);
         // Prediction Head
         let head_nf = self.model_args.d_model
-            * ((self.model_args.seq_len - self.model_args.patch_len) / self.model_args.stride + 2);
+            * ((lengths.seq_len - self.model_args.patch_len) / self.model_args.stride + 2);
 
         let head = match task_name {
             TaskName::LongTermForecast | TaskName::ShortTermForecast => Some(
-                FlattenHeadConfig::new(head_nf, self.model_args.pred_len, self.model_args.dropout)
+                FlattenHeadConfig::new(head_nf, lengths.pred_len, self.model_args.dropout)
                     .with_initializer(self.initializer.clone())
                     .init(device),
             ),
             TaskName::Imputation | TaskName::AnomalyDetection => Some(
-                FlattenHeadConfig::new(head_nf, self.model_args.seq_len, self.model_args.dropout)
+                FlattenHeadConfig::new(head_nf, lengths.seq_len, self.model_args.dropout)
                     .with_initializer(self.initializer.clone())
                     .init(device),
             ),
@@ -224,6 +226,7 @@ mod tests {
     use super::{super::test_util::assert_module_forecast, PatchTST, PatchTSTConfig};
     use crate::args::activation::ActivationArg;
     use crate::args::exp::TaskName;
+    use crate::args::time_lengths::TimeLengths;
     use crate::models::patch_tst::PatchTSTArgs;
     use burn::backend::Wgpu;
     use burn::nn::Initializer;
@@ -234,8 +237,6 @@ mod tests {
         let device = Default::default();
         let task_name = TaskName::LongTermForecast;
         let patch_tst_args = PatchTSTArgs {
-            seq_len: 96,
-            pred_len: 96,
             num_class: 10,
             d_model: 512,
             patch_len: 16,
@@ -248,11 +249,17 @@ mod tests {
             activation: ActivationArg::Gelu,
         };
 
+        let lengths = TimeLengths {
+            seq_len: 96,
+            pred_len: 96,
+            label_len: 48,
+        };
+
         let initializer = Initializer::Constant { value: (0.01) };
 
         let model = PatchTSTConfig::new(patch_tst_args)
             .with_initializer(initializer)
-            .init(task_name, &device);
+            .init(task_name, lengths, &device);
 
         assert_module_forecast::<B, PatchTST<B>>(model);
     }

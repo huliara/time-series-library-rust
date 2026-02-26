@@ -1,5 +1,5 @@
 use crate::{
-    args::exp::TaskName,
+    args::{exp::TaskName, time_lengths::TimeLengths},
     models::{
         dlinear::{DLinearArgs, DLinearConfig},
         patch_tst::{PatchTSTArgs, PatchTSTConfig},
@@ -15,21 +15,4 @@ pub enum ModelConfig {
     #[strum(serialize = "DLinear")]
     DLinear(DLinearArgs),
     // Other model configs can be added here
-}
-
-impl ModelConfig {
-    pub fn init<B: burn::tensor::backend::Backend>(
-        &self,
-        task_name: TaskName,
-        device: &B::Device,
-    ) -> Box<dyn Forecast<B>> {
-        match self {
-            ModelConfig::PatchTST(args) => {
-                Box::new(PatchTSTConfig::new(args.clone()).init(task_name, device))
-            }
-            ModelConfig::DLinear(args) => {
-                Box::new(DLinearConfig::new(args.clone()).init(task_name, device))
-            }
-        }
-    }
 }

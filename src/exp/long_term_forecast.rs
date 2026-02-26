@@ -5,7 +5,7 @@ mod save_results;
 pub mod train;
 mod train_step;
 use crate::{
-    args::{exp::TaskName, model_config::ModelConfig},
+    args::{exp::TaskName, model_config::ModelConfig, time_lengths::TimeLengths},
     exp::Exp,
     models::{
         dlinear::{DLinear, DLinearConfig},
@@ -26,14 +26,18 @@ pub struct ForecastModel<B: Backend> {
 }
 
 impl<B: Backend> ForecastModel<B> {
-    pub fn new(model_config: ModelConfig, device: &B::Device) -> Self {
+    pub fn new(model_config: ModelConfig, lengths: TimeLengths, device: &B::Device) -> Self {
         let model = match model_config {
-            ModelConfig::PatchTST(args) => {
-                Model::PatchTST(PatchTSTConfig::new(args).init(TaskName::LongTermForecast, device))
-            }
-            ModelConfig::DLinear(args) => {
-                Model::DLinear(DLinearConfig::new(args).init(TaskName::LongTermForecast, device))
-            }
+            ModelConfig::PatchTST(args) => Model::PatchTST(PatchTSTConfig::new(args).init(
+                TaskName::LongTermForecast,
+                lengths,
+                device,
+            )),
+            ModelConfig::DLinear(args) => Model::DLinear(DLinearConfig::new(args).init(
+                TaskName::LongTermForecast,
+                lengths,
+                device,
+            )),
         };
         ForecastModel { model }
     }

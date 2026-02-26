@@ -1,7 +1,10 @@
 use super::util::*;
-use crate::args::{
-    data_config::DataConfig, feature_type::FeatureType, time_embed::TimeEmbed,
-    time_lengths::TimeLengths,
+use crate::{
+    args::{
+        data_config::DataConfig, feature_type::FeatureType, time_embed::TimeEmbed,
+        time_lengths::TimeLengths,
+    },
+    env_path::get_dataset_path,
 };
 use burn::{
     data::dataset::Dataset,
@@ -74,8 +77,8 @@ impl<B: Backend> ETTHourDataset<B> {
         device: &B::Device,
     ) -> Self {
         // Default size
-
-        let path = PathBuf::from(&args.data_path);
+        let data_path = get_dataset_path(args.data.clone());
+        let path = PathBuf::from(&data_path);
         let df = CsvReadOptions::default()
             .with_has_header(true)
             .try_into_reader_with_file_path(Some(path))

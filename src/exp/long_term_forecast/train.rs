@@ -65,7 +65,7 @@ impl<B: AutodiffBackend> Train<B> for ForecastModel<B> {
             .num_epochs(exp_config.num_epochs)
             .summary();
         let optimizer = AdamConfig::new().init();
-        let model = ForecastModel::<B>::new(model_config, &device);
+        let model = ForecastModel::<B>::new(model_config, lengths, &device);
         let result = training.launch(Learner::new(model, optimizer, exp_config.learning_rate));
 
         result

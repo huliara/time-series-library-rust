@@ -18,9 +18,6 @@ pub struct DataConfig {
 
     #[arg(long, value_enum)]
     pub embed: TimeEmbed,
-
-    #[arg(long, default_value = "ETTh1.csv")]
-    pub data_path: String,
 }
 impl Default for DataConfig {
     fn default() -> Self {
@@ -29,7 +26,6 @@ impl Default for DataConfig {
             feature_type: FeatureType::Single,
             target: Target::OT,
             embed: TimeEmbed::TimeF,
-            data_path: get_dataset_path(Data::ETTh1),
         }
     }
 }
