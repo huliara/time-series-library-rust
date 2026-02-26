@@ -1,13 +1,9 @@
 use crate::{
     args::{data_config::DataConfig, model_config::ModelConfig, time_lengths::TimeLengths},
-    data::{
-        batcher::TimeSeriesBatcher,
-        dataset::ett_hour::{ETTHourDataset, ExpFlag},
-    },
-    exp::{create_artifact_dir, long_term_forecast::ForecastModel},
+    data::{data_loader::create_data_loader, dataset::ett_hour::ExpFlag},
+    exp::{create_artifact_dir, long_term_forecast::ForecastModel, Train},
 };
 use burn::{
-    data::dataloader::DataLoaderBuilder,
     optim::AdamConfig,
     prelude::*,
     record::CompactRecorder,
@@ -30,54 +26,51 @@ pub struct ExpConfig {
     pub learning_rate: f64,
 }
 
-pub fn train<B>(
-    result_path: &String,
-    train_config: ExpConfig,
-    model_config: ModelConfig,
-    data_config: DataConfig,
-    lengths: TimeLengths,
-    device: B::Device,
-) where
-    B: AutodiffBackend,
-{
-    create_artifact_dir(result_path);
+impl<B: AutodiffBackend> Train<B> for ForecastModel<B> {
+    fn train(
+        &self,
+        result_path: &str,
+        exp_config: ExpConfig,
+        model_config: ModelConfig,
+        data_config: DataConfig,
+        lengths: TimeLengths,
+        device: B::Device,
+    ) where
+        B: AutodiffBackend,
+    {
+        create_artifact_dir(result_path);
 
-    B::seed(&device, train_config.seed);
+        B::seed(&device, exp_config.seed);
 
-    let batcher = TimeSeriesBatcher::default();
-
-    let dataloader_train = DataLoaderBuilder::new(batcher.clone())
-        .batch_size(train_config.batch_size)
-        .shuffle(train_config.seed)
-        .num_workers(train_config.num_workers)
-        .build(ETTHourDataset::new(
+        let dataloader_train = create_data_loader(
             &data_config,
             &lengths,
+            exp_config.batch_size,
+            exp_config.num_workers,
+            exp_config.seed,
             ExpFlag::Train,
-            &device,
-        ));
+        );
 
-    let dataloader_valid = DataLoaderBuilder::new(batcher)
-        .batch_size(train_config.batch_size)
-        .shuffle(train_config.seed)
-        .num_workers(train_config.num_workers)
-        .build(ETTHourDataset::new(
+        let dataloader_valid = create_data_loader(
             &data_config,
             &lengths,
+            exp_config.batch_size,
+            exp_config.num_workers,
+            exp_config.seed,
             ExpFlag::Val,
-            &device,
-        ));
+        );
 
-    let training = SupervisedTraining::new(result_path, dataloader_train, dataloader_valid)
-        .with_file_checkpointer(CompactRecorder::new())
-        .num_epochs(train_config.num_epochs)
-        .summary();
-    let optimizer = AdamConfig::new().init();
-    let model = ForecastModel::<B>::new(model_config, &device);
-    let result = training.launch(Learner::new(model, optimizer, train_config.learning_rate));
+        let training = SupervisedTraining::new(result_path, dataloader_train, dataloader_valid)
+            .with_file_checkpointer(CompactRecorder::new())
+            .num_epochs(exp_config.num_epochs)
+            .summary();
+        let optimizer = AdamConfig::new().init();
+        let model = ForecastModel::<B>::new(model_config, &device);
+        let result = training.launch(Learner::new(model, optimizer, exp_config.learning_rate));
 
-    result
-        .model
-        .save_file(format!("{result_path}/model"), &CompactRecorder::new())
-        .expect("Trained model should be saved successfully");
+        result
+            .model
+            .save_file(format!("{result_path}/model"), &CompactRecorder::new())
+            .expect("Trained model should be saved successfully");
+    }
 }

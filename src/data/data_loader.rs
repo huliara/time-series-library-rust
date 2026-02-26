@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use crate::args::{data_config::DataConfig, time_lengths::TimeLengths};
 
+use crate::data::dataset::get_dataset;
 use crate::data::{
     batcher::{TimeSeriesBatch, TimeSeriesBatcher},
     dataset::ett_hour::{ETTHourDataset, ExpFlag},
@@ -15,21 +16,22 @@ pub fn create_data_loader<B: Backend>(
     data_config: &DataConfig,
     lengths: &TimeLengths,
     batch_size: usize,
+    num_workers: usize,
     seed: u64,
     flag: ExpFlag,
 ) -> Arc<dyn DataLoader<B, TimeSeriesBatch<B>>> {
     let device = B::Device::default();
-    let dataset: ETTHourDataset<B> = ETTHourDataset::new(data_config, lengths, flag, &device);
+    let dataset: ETTHourDataset<B> = get_dataset(data_config, lengths, flag, &device);
     match flag {
-        ExpFlag::Train => DataLoaderBuilder::new(TimeSeriesBatcher::default())
+        ExpFlag::Train | ExpFlag::Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
             .batch_size(batch_size)
             .shuffle(seed)
+            .num_workers(num_workers)
             .build(dataset),
-        ExpFlag::Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
-            .batch_size(batch_size)
-            .build(dataset),
+
         ExpFlag::Test => DataLoaderBuilder::new(TimeSeriesBatcher::default())
             .batch_size(batch_size)
+            .num_workers(num_workers)
             .build(dataset),
     }
 }
@@ -47,9 +49,16 @@ mod tests {
         let data_config = DataConfig::default();
         let lengths = TimeLengths::default();
         let batch_size = 32;
+        let num_workers = 0;
         let seed = 42;
-        let data_loader =
-            create_data_loader::<B>(&data_config, &lengths, batch_size, seed, ExpFlag::Test);
+        let data_loader = create_data_loader::<B>(
+            &data_config,
+            &lengths,
+            batch_size,
+            num_workers,
+            seed,
+            ExpFlag::Test,
+        );
         let py_dataloader_output =
             execute_dataloader_test().expect("Failed to execute dataloader test");
 

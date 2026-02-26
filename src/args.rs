@@ -30,7 +30,7 @@ pub struct RootArgs {
     #[command(flatten)]
     pub time_lengths: TimeLengths,
     #[command(flatten)]
-    pub train_config: ExpConfig,
+    pub exp_config: ExpConfig,
 
     #[arg(long)]
     pub skip_training: bool,

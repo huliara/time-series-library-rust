@@ -1,20 +1,27 @@
 mod forecast_output;
 pub mod infer;
 mod infer_step;
+mod save_results;
 pub mod train;
 mod train_step;
 use crate::{
     args::{exp::TaskName, model_config::ModelConfig},
+    exp::Exp,
     models::{
         dlinear::{DLinear, DLinearConfig},
         patch_tst::{PatchTST, PatchTSTConfig},
         traits::Forecast,
     },
 };
-use burn::prelude::*;
+use burn::{prelude::*, tensor::backend::AutodiffBackend};
+#[derive(Module, Debug)]
+enum Model<B: Backend> {
+    PatchTST(PatchTST<B>),
+    DLinear(DLinear<B>),
+}
 
 #[derive(Module, Debug)]
-struct ForecastModel<B: Backend> {
+pub struct ForecastModel<B: Backend> {
     model: Model<B>,
 }
 
@@ -32,12 +39,6 @@ impl<B: Backend> ForecastModel<B> {
     }
 }
 
-#[derive(Module, Debug)]
-enum Model<B: Backend> {
-    PatchTST(PatchTST<B>),
-    DLinear(DLinear<B>),
-}
-
 impl<B: Backend> Forecast<B> for ForecastModel<B> {
     fn forecast(
         &self,
@@ -52,3 +53,5 @@ impl<B: Backend> Forecast<B> for ForecastModel<B> {
         }
     }
 }
+
+impl<B: AutodiffBackend> Exp<B> for ForecastModel<B> {}

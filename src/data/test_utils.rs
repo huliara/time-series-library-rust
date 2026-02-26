@@ -11,5 +11,13 @@ pub fn setup_test_dataloader<B: Backend>() -> Arc<dyn DataLoader<B, TimeSeriesBa
     let lengths = TimeLengths::default();
     let batch_size = 32;
     let seed = 42;
-    create_data_loader::<B>(&data_config, &lengths, batch_size, seed, ExpFlag::Test)
+    let num_workers = 0;
+    create_data_loader::<B>(
+        &data_config,
+        &lengths,
+        batch_size,
+        num_workers,
+        seed,
+        ExpFlag::Test,
+    )
 }

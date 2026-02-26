@@ -36,7 +36,7 @@ impl Default for DataConfig {
 
 impl fmt::Display for DataConfig {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}_{}", self.data, self.target)
+        write!(f, "{}_{}_{}", self.data, self.target, self.feature_type)
     }
 }
 #[derive(Debug, Clone, ValueEnum, Deserialize, Serialize, strum::Display)]
