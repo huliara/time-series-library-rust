@@ -11,7 +11,7 @@ use self::exp::TaskName;
 use self::time_lengths::TimeLengths;
 use crate::{
     args::{backend::Backend, data_config::DataConfig, model_config::ModelConfig},
-    exp::long_term_forecast::TrainConfig,
+    exp::long_term_forecast::train::ExpConfig,
 };
 use clap::Parser;
 use serde::{Deserialize, Serialize};
@@ -30,7 +30,7 @@ pub struct RootArgs {
     #[command(flatten)]
     pub time_lengths: TimeLengths,
     #[command(flatten)]
-    pub train_config: TrainConfig,
+    pub train_config: ExpConfig,
 
     #[arg(long)]
     pub skip_training: bool,

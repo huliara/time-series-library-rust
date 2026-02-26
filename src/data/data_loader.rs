@@ -65,6 +65,8 @@ mod tests {
         }
         let x_tensor = burn::tensor::Tensor::cat(x_vec, 0).to_data();
         let y_tensor = burn::tensor::Tensor::cat(y_vec, 0).to_data();
+        println!("Rust x_tensor shape: {:?}\n", x_tensor.shape);
+        println!("Rust y_tensor shape: {:?}\n", y_tensor.shape);
         let x_mark_tensor = burn::tensor::Tensor::cat(x_mark_vec, 0).to_data();
         let y_mark_tensor = burn::tensor::Tensor::cat(y_mark_vec, 0).to_data();
 
