@@ -38,9 +38,6 @@ pub struct RootArgs {
     #[arg(long, default_value = "test")]
     pub model_id: String,
 
-    #[arg(long, default_value = "./result/")]
-    pub result_path: String,
-
     #[arg(long, default_value = "./checkpoints/")]
     pub checkpoints: String,
 }

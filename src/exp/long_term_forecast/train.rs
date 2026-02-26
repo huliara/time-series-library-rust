@@ -31,7 +31,7 @@ pub struct ExpConfig {
 }
 
 pub fn train<B>(
-    artifact_dir: &str,
+    result_path: &String,
     train_config: ExpConfig,
     model_config: ModelConfig,
     data_config: DataConfig,
@@ -40,7 +40,7 @@ pub fn train<B>(
 ) where
     B: AutodiffBackend,
 {
-    create_artifact_dir(artifact_dir);
+    create_artifact_dir(result_path);
 
     B::seed(&device, train_config.seed);
 
@@ -64,11 +64,11 @@ pub fn train<B>(
         .build(ETTHourDataset::new(
             &data_config,
             &lengths,
-            ExpFlag::_Val,
+            ExpFlag::Val,
             &device,
         ));
 
-    let training = SupervisedTraining::new(artifact_dir, dataloader_train, dataloader_valid)
+    let training = SupervisedTraining::new(result_path, dataloader_train, dataloader_valid)
         .with_file_checkpointer(CompactRecorder::new())
         .num_epochs(train_config.num_epochs)
         .summary();
@@ -78,6 +78,6 @@ pub fn train<B>(
 
     result
         .model
-        .save_file(format!("{artifact_dir}/model"), &CompactRecorder::new())
+        .save_file(format!("{result_path}/model"), &CompactRecorder::new())
         .expect("Trained model should be saved successfully");
 }

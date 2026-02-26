@@ -25,7 +25,7 @@ pub fn create_data_loader<B: Backend>(
             .batch_size(batch_size)
             .shuffle(seed)
             .build(dataset),
-        ExpFlag::_Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
+        ExpFlag::Val => DataLoaderBuilder::new(TimeSeriesBatcher::default())
             .batch_size(batch_size)
             .build(dataset),
         ExpFlag::Test => DataLoaderBuilder::new(TimeSeriesBatcher::default())
