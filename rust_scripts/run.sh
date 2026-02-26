@@ -1,0 +1,1 @@
+cargo run -- --task-name long-term-forecast --backend wgpu --data et-th1 --feature-type single --target ot --embed time-f d-linear 
