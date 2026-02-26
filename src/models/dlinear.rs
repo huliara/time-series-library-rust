@@ -13,9 +13,13 @@ use clap::Args;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, Args)]
 pub struct DLinearArgs {
+    #[arg(long, default_value_t = 7)]
     pub enc_in: usize,
+    #[arg(long, default_value_t = false)]
     pub individual: bool,
+    #[arg(long, default_value_t = 25)]
     pub moving_avg: usize,
+    #[arg(long, default_value_t = 10)]
     pub num_class: usize, // Only used for classification task, ignored otherwise
 }
 #[derive(Config, Debug)]
